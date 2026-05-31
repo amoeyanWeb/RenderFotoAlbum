@@ -692,28 +692,31 @@
     t._tid = setTimeout(() => t.classList.remove("show"), 4000);
   };
 
-  // ══════════ Download Updated HTML ══════════
+  // ══════════ Download Updated data.js ══════════
 
   function downloadUpdatedIndex() {
+    downloadUpdatedData();
+  }
+
+  function downloadUpdatedData() {
     const progressLabel = document.getElementById("uploadProgressLabel");
     if (progressLabel) progressLabel.textContent = "";
     const statusEl = document.getElementById("statusMessage");
     if (statusEl) statusEl.textContent = "";
 
-    let html = document.documentElement.outerHTML;
-    html = html.replace(
-      /var DATA = {[\s\S]*?};(?=\s*\n\s*(\/\/|var LABELS|let LABELS))/g,
-      "var DATA = " + JSON.stringify(DATA, null, 2) + ";",
-    );
-    html = html.replace(
-      /var LABELS = {[\s\S]*?};/,
-      "var LABELS = " + JSON.stringify(window.LABELS, null, 2) + ";",
-    );
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const dataContent =
+      "// ═══════════════════════════════════════════════════════════\n" +
+      "//  data.js — فایل داده‌های آلبوم\n" +
+      "//  این فایل توسط ادمین به‌روزرسانی می‌شود و نباید دستی ویرایش شود\n" +
+      "// ═══════════════════════════════════════════════════════════\n\n" +
+      "var DATA = " + JSON.stringify(DATA, null, 2) + ";\n\n" +
+      "var LABELS = " + JSON.stringify(window.LABELS, null, 2) + ";\n";
+
+    const blob = new Blob([dataContent], { type: "application/javascript;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "index.html";
+    a.download = "data.js";
     a.click();
     URL.revokeObjectURL(url);
   }
