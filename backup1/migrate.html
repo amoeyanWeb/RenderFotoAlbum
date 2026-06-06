@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <title>انتقال داده به Firebase</title>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <script src="data.js"></script>
+  <style>
+    body { font-family: Tahoma, sans-serif; background:#1a1a2e; color:#eee; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+    .box { background:#16213e; border-radius:16px; padding:40px; max-width:500px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.5); text-align:center; }
+    h2 { color:#f0a500; margin-bottom:8px; }
+    p { color:#aaa; font-size:0.9rem; margin-bottom:24px; line-height:1.7; }
+    button { background:#f0a500; color:#1a1a2e; border:none; padding:14px 32px; border-radius:8px; font-size:1rem; font-weight:bold; cursor:pointer; width:100%; transition:opacity .2s; }
+    button:hover { opacity:0.85; }
+    button:disabled { background:#555; color:#888; cursor:not-allowed; }
+    #log { margin-top:20px; background:#0d0d1a; border-radius:8px; padding:16px; text-align:right; font-size:0.8rem; max-height:300px; overflow-y:auto; line-height:2; }
+    .ok { color:#3ecf6b; }
+    .err { color:#e74c3c; }
+    .info { color:#f0a500; }
+    .done-box { margin-top:20px; background:#0d2b0d; border-radius:8px; padding:16px; border:1px solid #3ecf6b; display:none; }
+    .done-box h3 { color:#3ecf6b; margin:0 0 8px; }
+    .done-box p { color:#aaa; margin:0; font-size:0.85rem; }
+  </style>
+</head>
+<body>
+<div class="box">
+  <h2>🚀 انتقال داده به Firebase</h2>
+  <p>
+    این صفحه تمام اطلاعات <code>data.js</code> (عکس‌ها، رویدادها، مناسبت‌ها) را
+    <strong>یک‌بار</strong> در Firebase Realtime Database ذخیره می‌کند.<br><br>
+    بعد از انتقال موفق، <strong>data.js را حذف کنید</strong> و از
+    نسخه جدید <code>app.js</code> استفاده کنید.
+  </p>
+  <button id="btnMigrate" onclick="startMigration()">▶ شروع انتقال داده</button>
+  <div id="log"></div>
+  <div class="done-box" id="doneBox">
+    <h3>✅ انتقال کامل شد!</h3>
+    <p>حالا می‌توانید این فایل را ببندید و <code>data.js</code> را از پروژه حذف کنید.</p>
+  </div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCNetG7kzLaOiX1PF93tx1B7nLWm-2By_8",
+    authDomain: "fotoalbum-ac441.firebaseapp.com",
+    databaseURL: "https://fotoalbum-ac441-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "fotoalbum-ac441",
+    storageBucket: "fotoalbum-ac441.firebasestorage.app",
+    messagingSenderId: "547954410485",
+    appId: "1:547954410485:web:2f3a1b4c90f5d7bdf8d6bc"
+  };
+
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+  const rtdb = firebase.database();
+
+  function log(msg, cls) {
+    const el = document.getElementById("log");
+    el.innerHTML += `<div class="${cls||''}">${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  async function startMigration() {
+    const btn = document.getElementById("btnMigrate");
+    btn.disabled = true;
+    btn.textContent = "⏳ در حال انتقال...";
+    document.getElementById("log").innerHTML = "";
+
+    try {
+      // بررسی وجود DATA
+      if (typeof DATA === "undefined") {
+        log("❌ متغیر DATA یافت نشد! مطمئن شوید data.js بارگذاری شده است.", "err");
+        btn.disabled = false; btn.textContent = "▶ شروع انتقال داده";
+        return;
+      }
+      if (typeof LABELS === "undefined") {
+        log("❌ متغیر LABELS یافت نشد!", "err");
+        btn.disabled = false; btn.textContent = "▶ شروع انتقال داده";
+        return;
+      }
+
+      log("📦 شروع انتقال LABELS...", "info");
+      await rtdb.ref("/labels").set(LABELS);
+      log(`✅ LABELS — ${Object.keys(LABELS).length} مناسبت ذخیره شد`, "ok");
+
+      const occasions = Object.keys(DATA);
+      log(`📦 شروع انتقال DATA — ${occasions.length} مناسبت...`, "info");
+
+      let totalPhotos = 0;
+      let totalEvents = 0;
+
+      for (const occ of occasions) {
+        const events = DATA[occ];
+        log(`  ⏳ مناسبت: ${LABELS[occ] || occ} (${events.length} رویداد)`, "info");
+
+        // تبدیل آرایه رویدادها به آبجکت برای Firebase
+        // Firebase با آرایه‌های بزرگ مشکل دارد — از آبجکت استفاده می‌کنیم
+        const eventsObj = {};
+        events.forEach(function(event, idx) {
+          const photosObj = {};
+          const photos = event.photos || [];
+          photos.forEach(function(photo, pIdx) {
+            photosObj["p" + pIdx] = {
+              src: photo.src,
+              title: photo.title || "",
+              order: pIdx
+            };
+          });
+          eventsObj["e" + idx] = {
+            label: event.label,
+            order: idx,
+            photos: photosObj
+          };
+          totalPhotos += photos.length;
+          totalEvents++;
+        });
+
+        await rtdb.ref("/albums/" + occ).set(eventsObj);
+        log(`  ✅ ${LABELS[occ] || occ} — ${events.length} رویداد`, "ok");
+      }
+
+      log(``, "");
+      log(`🎉 انتقال کامل شد!`, "ok");
+      log(`📊 آمار: ${occasions.length} مناسبت، ${totalEvents} رویداد، ${totalPhotos} عکس`, "ok");
+
+      document.getElementById("doneBox").style.display = "block";
+
+    } catch(err) {
+      log("❌ خطا: " + err.message, "err");
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = "🔄 تلاش مجدد";
+    }
+  }
+</script>
+</body>
+</html>

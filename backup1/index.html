@@ -98,29 +98,31 @@
         }
       }
     </style>
-
-    <style>
-      /* ── Admin Panel Scroll Fix ── */
-      #adminPanel {
-        flex-direction: column !important;
-        height: 88vh !important;
-        max-height: 88vh !important;
-        overflow: hidden !important;
-      }
-      #adminPanel .ap-header {
-        flex-shrink: 0 !important;
-      }
-      #adminPanel .admin-tabs {
-        flex-shrink: 0 !important;
-      }
-      #adminPanel .ap-body {
-        flex: 1 1 auto !important;
-        min-height: 0 !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-      }
-    </style>
-  </head>
+  
+ 
+  
+  <style>
+    /* ── Admin Panel Scroll Fix ── */
+    #adminPanel {
+      flex-direction: column !important;
+      height: 88vh !important;
+      max-height: 88vh !important;
+      overflow: hidden !important;
+    }
+    #adminPanel .ap-header {
+      flex-shrink: 0 !important;
+    }
+    #adminPanel .admin-tabs {
+      flex-shrink: 0 !important;
+    }
+    #adminPanel .ap-body {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+  </style>
+</head>
   <body>
     <!-- ====================== Initial Login Modal ====================== -->
     <div
@@ -148,8 +150,9 @@
           <input
             type="text"
             id="lgUser"
-            placeholder="g..."
+            placeholder="username"
             autocomplete="none"
+            value="guest"
             fdprocessedid="vtx37a"
           />
         </div>
@@ -158,8 +161,9 @@
           <input
             type="password"
             id="lgPass"
-            placeholder="k•••••"
+            placeholder="••••••"
             autocomplete="current-password"
+            value="kangeli"
             onkeydown="if (event.key === 'Enter') doSystemLogin();"
             fdprocessedid="g0b6co"
           />
@@ -187,7 +191,7 @@
     </nav>
 
     <div class="hero">
-      <h1 class="hero-title"><em> گنجینه خاطرات</em></h1>
+      <h1 class="hero-title">گنجینه خاطرات</em></h1>
       <p class="hero-sub">هر عکس، داستان جاودانهٔ یک لحظهٔ بی‌همتاست</p>
       <div class="hero-divider"></div>
       <div class="filters">
@@ -201,6 +205,7 @@
           <div class="filter-label">رویداد</div>
           <select class="filter-select" id="selDate" fdprocessedid="omib6r">
             <option value="">— Tarih seçimi —</option>
+           
           </select>
         </div>
       </div>
@@ -273,11 +278,7 @@
     </div>
 
     <div class="content" id="content">
-      <div class="empty">
-        <div class="empty-icon">📷</div>
-        <h3>آلبوم خود را انتخاب کنید</h3>
-        <p>از منوی بالا مناسبت خود را انتخاب کنید</p>
-      </div>
+      <div class="empty"><div class="empty-icon">📷</div><h3>آلبوم خود را انتخاب کنید</h3><p>از منوی بالا مناسبت خود را انتخاب کنید</p></div>
     </div>
 
     <div class="fs-overlay" id="fsOverlay">
@@ -314,6 +315,12 @@
         if (current) selEl.value = current;
       }
 
+
+
+
+
+
+
       let currentPhotos = [],
         currentView = "small",
         slideIndex = 0;
@@ -326,25 +333,20 @@
       // سلکتورها و event listenerها بعد از لود Firebase وصل می‌شوند
       document.addEventListener("DOMContentLoaded", function () {
         const selOccasion = document.getElementById("selOccasion");
-        const selDate = document.getElementById("selDate");
-        const toolbar = document.getElementById("toolbar");
-        const content = document.getElementById("content");
+        const selDate     = document.getElementById("selDate");
+        const toolbar     = document.getElementById("toolbar");
+        const content     = document.getElementById("content");
         const topbarCount = document.getElementById("topbarCount");
 
         function hideAll() {
           toolbar.style.display = "none";
-          content.innerHTML =
-            '<div class="empty"><div class="empty-icon">📷</div><h3>آلبوم خود را انتخاب کنید</h3><p>از منوی بالا مناسبت خود را انتخاب کنید</p></div>';
+          content.innerHTML = '<div class="empty"><div class="empty-icon">📷</div><h3>آلبوم خود را انتخاب کنید</h3><p>از منوی بالا مناسبت خود را انتخاب کنید</p></div>';
           if (topbarCount) topbarCount.textContent = "";
         }
 
         // صبر کن تا app.js داده‌های Firebase را لود کند
         function waitForData(cb) {
-          if (
-            window.DATA &&
-            Object.keys(window.DATA).length >= 0 &&
-            window._dataLoaded
-          ) {
+          if (window.DATA && Object.keys(window.DATA).length >= 0 && window._dataLoaded) {
             cb();
           } else {
             setTimeout(() => waitForData(cb), 150);
@@ -381,14 +383,10 @@
         selDate.addEventListener("change", () => {
           const occ = selOccasion.value;
           const idx = selDate.value;
-          if (!occ || idx === "") {
-            hideAll();
-            return;
-          }
+          if (!occ || idx === "") { hideAll(); return; }
           currentPhotos = ((window.DATA[occ] || [])[idx] || {}).photos || [];
           toolbar.style.display = "flex";
-          if (topbarCount)
-            topbarCount.textContent = currentPhotos.length + " عکس";
+          if (topbarCount) topbarCount.textContent = currentPhotos.length + " عکس";
           render();
         });
 
@@ -711,46 +709,37 @@
     </script>
 
     <!-- ══ Toast پیام ══ -->
-    <div
-      id="apToast"
-      style="
-        position: fixed;
-        bottom: 30px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #3a2a1a;
-        color: #fff;
-        padding: 10px 22px;
-        border-radius: 99px;
-        font-size: 0.92rem;
-        font-family: inherit;
-        z-index: 99999;
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
-        opacity: 0;
-        transition: opacity 0.3s;
-        pointer-events: none;
-        white-space: nowrap;
-        display: none;
-      "
-    ></div>
+    <div id="apToast" style="
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #3a2a1a;
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 99px;
+      font-size: 0.92rem;
+      font-family: inherit;
+      z-index: 99999;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.3);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      white-space: nowrap;
+      display: none;
+    "></div>
     <style>
-      #apToast.show {
-        opacity: 1 !important;
-      }
+      #apToast.show { opacity: 1 !important; }
     </style>
 
     <!-- ══ آورلی ادمین ══ -->
-    <div
-      id="adminOverlay"
-      style="
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 9999;
-      "
-      onclick="closeAdmin()"
-    ></div>
+    <div id="adminOverlay" style="
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 9999;
+    " onclick="closeAdmin()"></div>
 
     <!-- ══ کلید ادمین ══ -->
     <button
@@ -783,7 +772,7 @@
         <input
           type="text"
           id="adUser"
-          placeholder="a..."
+          placeholder="admin"
           value="admin"
           autocomplete="none"
         />
@@ -793,8 +782,8 @@
         <input
           type="password"
           id="adPass"
-          placeholder="a...k..."
-          value="a...k..."
+         
+          value="adminkangeli"
           autocomplete="none"
           onkeydown="if (event.key === 'Enter') doAdminLogin();"
         />
@@ -841,7 +830,7 @@
         background: rgb(255, 255, 255);
       "
     >
-      <div class="ap-header" style="flex-shrink: 0">
+      <div class="ap-header" style="flex-shrink:0;">
         <h3>پنل مدیریت خاطرات</h3>
         <button class="ap-close" onclick="closeAdmin()" fdprocessedid="q0mqyt">
           ×
@@ -915,35 +904,30 @@
         </button>
       </div>
 
-      <div
-        class="ap-body"
-        style="
-          overflow-y: auto;
-          overflow-x: hidden;
-          flex: 1 1 0%;
-          min-height: 0;
-          padding: 1.5rem;
-        "
-      >
+      <div class="ap-body" style="overflow-y: auto; overflow-x: hidden; flex: 1 1 0%; min-height: 0; padding: 1.5rem;">
         <div id="tab-uploads" style="display: block">
           <div class="panel-box">
             <span class="box-title">افزودن مناسبت جدید</span>
-            <div
-              class="form-group"
-              style="flex-wrap: nowrap; gap: 8px; align-items: center"
-            >
+            <div class="form-group" style="flex-wrap:nowrap; gap:8px; align-items:center;">
               <input
                 type="text"
                 id="newOccasionName"
                 class="input-field"
-                placeholder="نام مناسبت (مثلاً: تولد)"
-                style="flex: 1 1 0; min-width: 0"
-                onkeydown="if (event.key === 'Enter') createNewOccasion();"
+                placeholder="نام فارسی (مثلاً: تولد)"
+                style="flex:1 1 0; min-width:0;"
+              />
+              <input
+                type="text"
+                id="newOccasionRef"
+                class="input-field"
+                placeholder="کلید انگلیسی — اجباری (birthday)"
+                dir="ltr"
+                style="flex:1 1 0; min-width:0;"
               />
               <button
                 class="abtn abtn-gold"
                 onclick="createNewOccasion()"
-                style="white-space: nowrap; flex-shrink: 0"
+                style="white-space:nowrap; flex-shrink:0;"
               >
                 + افزودن
               </button>
@@ -952,14 +936,11 @@
 
           <div class="panel-box">
             <span class="box-title">حذف مناسبت</span>
-            <div
-              class="form-group"
-              style="flex-wrap: nowrap; gap: 8px; align-items: center"
-            >
+            <div class="form-group" style="flex-wrap:nowrap; gap:8px; align-items:center;">
               <select
                 id="deleteOccasionSelector"
                 class="input-field"
-                style="flex: 1 1 0; min-width: 0"
+                style="flex:1 1 0; min-width:0;"
                 onfocus="fillDeleteOccasionSelector()"
               >
                 <option value="">انتخاب مناسبت برای حذف...</option>
@@ -967,13 +948,7 @@
               <button
                 class="abtn"
                 onclick="deleteOccasion()"
-                style="
-                  white-space: nowrap;
-                  flex-shrink: 0;
-                  background: #c0392b;
-                  color: #fff;
-                  border: none;
-                "
+                style="white-space:nowrap; flex-shrink:0; background:#c0392b; color:#fff; border:none;"
               >
                 🗑 حذف مناسبت
               </button>
@@ -1086,12 +1061,7 @@
                 id="stopUploadBtn"
                 class="abtn"
                 onclick="cancelUpload()"
-                style="
-                  display: none;
-                  background: #c0392b;
-                  color: #fff;
-                  border: none;
-                "
+                style="display:none; background:#c0392b; color:#fff; border:none;"
               >
                 ⛔ توقف آپلود
               </button>
@@ -1154,12 +1124,11 @@
                 margin-top: 1rem;
               "
             ></div>
-          </div>
-          <!-- end panel-box -->
-        </div>
-        <!-- end tab-uploads -->
+          </div><!-- end panel-box -->
+        </div><!-- end tab-uploads -->
 
         <div id="tab-settings" style="display: none">
+
           <div class="panel-box">
             <span class="box-title">تنظیمات امنیتی</span>
             <div class="form-group" style="gap: 10px">
@@ -1177,11 +1146,11 @@
               </button>
             </div>
           </div>
-        </div>
-        <!-- end tab-settings -->
+        </div><!-- end tab-settings -->
+      </div>
+   
       </div>
     </div>
-
     <!-- مودال تغییر رمز -->
     <div id="pwdChangeOverlay" class="pwd-overlay">
       <div class="pwd-card">
@@ -1216,11 +1185,7 @@
           <button class="abtn abtn-brown" onclick="closePwdModal()">
             انصراف
           </button>
-          <button
-            id="pwdApplyBtn"
-            class="abtn abtn-gold"
-            onclick="applyPwdChange()"
-          >
+          <button id="pwdApplyBtn" class="abtn abtn-gold" onclick="applyPwdChange()">
             تغییر
           </button>
         </div>
@@ -1282,6 +1247,7 @@
     </script>
     <!-- مودال تغییر رمز -->
 
+
     <span id="PING_IFRAME_FORM_DETECTION" style="display: none"></span
     ><span id="PING_CONTENT_DLS_POPUP" style="display: none"></span>
     <div
@@ -1361,7 +1327,7 @@
       "
     ></div>
 
-    <!-- app.js باید بعد از همه المان‌های HTML لود شود -->
-    <script src="app.js"></script>
+  <!-- app.js باید بعد از همه المان‌های HTML لود شود -->
+  <script src="app.js"></script>
   </body>
 </html>

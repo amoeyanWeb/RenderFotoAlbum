@@ -645,9 +645,14 @@
 
   window.createNewOccasion = async function () {
     const persianName = document.getElementById("newOccasionName").value.trim();
-    if (!persianName) return apToast("⚠️ نام مناسبت را وارد کنید");
-    // کلید یکتا: occ_ + timestamp کوتاه
-    const englishKey = "occ_" + Date.now().toString(36);
+    const englishKey = document
+      .getElementById("newOccasionRef")
+      .value.trim()
+      .toLowerCase();
+    if (!persianName) return apToast("⚠️ نام فارسی مناسبت را وارد کنید");
+    if (!englishKey) return apToast("⚠️ عنوان انگلیسی اجباری است — مثلاً: birthday");
+    if (!/^[a-zA-Z0-9_]+$/.test(englishKey)) return apToast("⚠️ عنوان انگلیسی فقط حروف لاتین، عدد و _ مجاز است");
+    if (window.DATA[englishKey]) return apToast("❌ مناسبتی با این عنوان انگلیسی وجود دارد");
 
     try {
       apToast("⏳ در حال ذخیره در Firebase...");
