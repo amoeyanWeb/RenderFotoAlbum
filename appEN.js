@@ -900,6 +900,61 @@
   };
 
   // ══════════════════════════════════════════════════════════
+  //  Delete Photo from Lightbox — Cloudinary + Firebase + Memory
+  // ══════════════════════════════════════════════════════════
+
+  window.lbDeletePhoto = async function () {
+    const occ      = window._lbOcc;
+    const eventIdx = window._lbEventIdx;
+    const photoIdx = window._lbPhotoIdx;
+
+    if (occ === undefined || eventIdx === undefined || photoIdx === undefined) {
+      apToast("⚠️ Photo info not found"); return;
+    }
+    if (!window.DATA[occ]?.[eventIdx]) {
+      apToast("⚠️ Event not found"); return;
+    }
+
+    const ev    = window.DATA[occ][eventIdx];
+    const photo = ev.photos[photoIdx];
+    if (!photo) { apToast("⚠️ Photo not found"); return; }
+
+    if (!confirm("Delete this photo from the album, Firebase and Cloudinary?")) return;
+
+    const lb = document.getElementById("lightbox");
+    if (lb) lb.classList.remove("open");
+
+    // 1) Delete from Cloudinary
+    const r = await cloudinaryDelete(photo.src);
+    if (r === "ok")        apToast("🗑 Photo deleted from Cloudinary and album");
+    else if (r === "skip") apToast("🗑 Photo deleted (API Key/Secret not set)");
+    else                   apToast("🗑 Photo deleted (Cloudinary error)");
+
+    // 2) Delete from Firebase
+    if (ev._fbKey && photo._fbKey) {
+      await deletePhotoFromFB(occ, ev._fbKey, photo._fbKey);
+    }
+
+    // 3) Delete from local memory
+    ev.photos.splice(photoIdx, 1);
+
+    // 4) Update order of remaining photos in Firebase
+    if (ev._fbKey && ev.photos.length > 0) {
+      const updates = {};
+      ev.photos.forEach(function (p, idx) {
+        if (p._fbKey)
+          updates["/albums/" + occ + "/" + ev._fbKey + "/photos/" + p._fbKey + "/order"] = idx;
+      });
+      if (Object.keys(updates).length > 0) await rtdb.ref("/").update(updates);
+    }
+
+    // 5) Refresh gallery
+    if (typeof window._lbRefreshGallery === "function") {
+      window._lbRefreshGallery();
+    }
+  };
+
+  // ══════════════════════════════════════════════════════════
   //  Delete Entire Event
   // ══════════════════════════════════════════════════════════
 

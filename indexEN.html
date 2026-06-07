@@ -120,6 +120,25 @@
         overflow-x: hidden !important;
       }
     </style>
+    <style>
+      .lightbox-delete {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(180, 40, 40, 0.85);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 22px;
+        font-size: 1rem;
+        cursor: pointer;
+        display: none;
+        z-index: 10;
+        transition: background 0.2s;
+      }
+      .lightbox-delete:hover { background: rgba(180, 40, 40, 1); }
+    </style>
   </head>
   <body>
     <!-- ====================== Initial Login Modal ====================== -->
@@ -363,6 +382,7 @@
       <button class="lightbox-close" onclick="closeLightbox()">×</button>
       <img id="lbImg" src="" alt="" />
       <div class="lightbox-info" id="lbInfo"></div>
+      <button class="lightbox-delete" id="lbDeleteBtn" onclick="lbDeletePhoto()" title="Delete photo">🗑</button>
     </div>
 
     <!-- data.js removed — data comes from Firebase -->
@@ -384,6 +404,7 @@
       let currentPhotos = [],
         currentView = "small",
         slideIndex = 0;
+      let currentOcc = "", currentEventIdx = "";
       let autoTimer = null,
         autoInterval = 3000,
         autoPaused = false;
@@ -453,6 +474,8 @@
             hideAll();
             return;
           }
+          currentOcc = occ;
+          currentEventIdx = idx;
           currentPhotos = ((window.DATA[occ] || [])[idx] || {}).photos || [];
           toolbar.style.display = "flex";
           if (topbarCount)
@@ -727,6 +750,17 @@
         document.getElementById("lbImg").src = currentPhotos[i].src;
         document.getElementById("lbInfo").textContent =
           `${currentPhotos[i].title}  —  ${currentPhotos[i].date}`;
+        const delBtn = document.getElementById("lbDeleteBtn");
+        if (delBtn) delBtn.style.display = (sessionStorage.getItem("adminLoggedIn") === "true") ? "block" : "none";
+        window._lbOcc        = currentOcc;
+        window._lbEventIdx   = parseInt(currentEventIdx);
+        window._lbPhotoIdx   = i;
+        window._lbRefreshGallery = function () {
+          currentPhotos = ((window.DATA[currentOcc] || [])[currentEventIdx] || {}).photos || [];
+          render();
+          const tc = document.getElementById("topbarCount");
+          if (tc) tc.textContent = currentPhotos.length + " Photos";
+        };
         lb.classList.add("open");
       }
       function closeLightbox() {
