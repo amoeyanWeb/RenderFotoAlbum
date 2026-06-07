@@ -10,7 +10,7 @@ firebase-debug.*.log*
 # Firebase cache
 .firebase/
 
-.backup1/
+/backup1/
 
 # Firebase config
 

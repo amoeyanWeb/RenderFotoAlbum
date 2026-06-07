@@ -1,13 +1,13 @@
 /* ════════════════════════════════════════════════════════════
-   app.js — Firebase Sürümü
-   Tüm veriler (fotoğraflar, olaylar, etkinlikler) Firebase RTDB'de
-   data.js gerekmez — her değişiklik doğrudan veritabanına kaydedilir
+   app.js — نسخه Firebase
+   تمام داده‌ها (عکس‌ها، رویدادها، مناسبت‌ها) در Firebase RTDB
+   نیازی به data.js نیست — هر تغییر مستقیم در دیتابیس ذخیره می‌شود
    ════════════════════════════════════════════════════════════ */
-// Projeyi Render'a yükledikten sonra bu adresi Render site adresinizle değiştirin
+// وقتی پروژه را روی رندر آپلود کردید، این آدرس را با آدرس سایت رندرتان عوض خواهید کرد
 
 (function () {
   // ══════════════════════════════════════════════════════════
-  //  ⚙️  Firebase ve Cloudinary Ayarları
+  //  ⚙️  تنظیمات Firebase و Cloudinary
   // ══════════════════════════════════════════════════════════
   const FUNCTIONS_BASE_URL =
     window.location.hostname === "localhost" ||
@@ -35,15 +35,15 @@
   };
 
   // ══════════════════════════════════════════════════════════
-  //  Bu satırın altını değiştirmenize gerek yok
+  //  پایین این خط نیاز به تغییر ندارد
   // ══════════════════════════════════════════════════════════
 
   // ── Firebase init ──
   if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   const rtdb = firebase.database();
 
-  // ── Yerel Bellek (Önbellek) ──
-  // DATA: { [occasion]: [ { label, photos: [{src, title}] } ] }  — dizi formatı
+  // ── حافظه محلی (کش) ──
+  // DATA: { [occasion]: [ { label, photos: [{src, title}] } ] }  — آرایه‌ای مانند قبل
   window.DATA = {};
   window.LABELS = {};
 
@@ -75,7 +75,7 @@
   //  Firebase Helper Functions
   // ══════════════════════════════════════════════════════════
 
-  // Firebase yapısını (e0,e1,... anahtarlı nesne) diziye dönüştür
+  // تبدیل ساختار Firebase (آبجکت با کلید e0,e1,...) به آرایه
   function fbEventsToArray(eventsObj) {
     if (!eventsObj) return [];
     return Object.entries(eventsObj)
@@ -98,20 +98,20 @@
       }));
   }
 
-  // Firebase için benzersiz anahtar üret
+  // تولید کلید یکتا برای Firebase
   function fbKey() {
     return (
       "k" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
     );
   }
 
-  // Firebase'den tüm verileri yükle
-  // Daha yüksek güvenlik için güncellendi
+  // بارگذاری کامل داده‌ها از Firebase
+  // تغییر یافته برای امنیت بالاتر
   async function loadAllData() {
     const [labelsSnap, albumsSnap] = await Promise.all([
       rtdb.ref("/labels").once("value"),
       rtdb.ref("/albums").once("value"),
-      // ❌ Şifre alma satırı tamamen kaldırıldı
+      // ❌ خط مربوط به دریافت پسوردها کاملاً حذف شد
     ]);
 
     window.LABELS = labelsSnap.val() || {};
@@ -121,14 +121,14 @@
       window.DATA[occ] = fbEventsToArray(albumsSnap.val()[occ]);
     });
 
-    // Ayarlar: yalnızca Cloudinary adı herkese açık kalır
+    // تنظیمات فقط نام کلودینری به صورت پابلیک می‌ماند
     _cfg.cloudName = "delf4luxo";
     _cfg.preset = "ml_default";
 
     return true;
   }
 
-  // Kimlik bilgilerini Firebase'e kaydet
+  // ذخیره credentials در Firebase
   async function saveCredentialsToFirebase(updates) {
     try {
       await rtdb.ref("/").update(updates);
@@ -139,7 +139,7 @@
     }
   }
 
-  // Firebase'e bir olay kaydet (oluştur veya güncelle)
+  // ذخیره یک رویداد در Firebase (ایجاد یا بروزرسانی)
   async function saveEventToFB(occ, eventIdx) {
     const ev = window.DATA[occ][eventIdx];
     if (!ev) return;
@@ -157,19 +157,19 @@
     ev._fbKey = key;
   }
 
-  // Firebase'den bir olayı sil
+  // حذف یک رویداد از Firebase
   async function deleteEventFromFB(occ, fbKey) {
     await rtdb.ref("/albums/" + occ + "/" + fbKey).remove();
   }
 
-  // Firebase'den bir fotoğrafı sil
+  // حذف یک عکس از Firebase
   async function deletePhotoFromFB(occ, eventFbKey, photoFbKey) {
     await rtdb
       .ref("/albums/" + occ + "/" + eventFbKey + "/photos/" + photoFbKey)
       .remove();
   }
 
-  // Firebase'e bir fotoğraf ekle
+  // اضافه کردن یک عکس به Firebase
   async function addPhotoToFB(occ, eventIdx, photoData) {
     const ev = window.DATA[occ][eventIdx];
     if (!ev || !ev._fbKey) return;
@@ -183,7 +183,7 @@
     photoData._fbKey = pKey;
   }
 
-  // splice sonrası olay sırasını güncelle
+  // بروزرسانی order رویدادها بعد از splice
   async function reorderEventsFB(occ) {
     const updates = {};
     (window.DATA[occ] || []).forEach(function (ev, idx) {
@@ -194,7 +194,7 @@
   }
 
   // ══════════════════════════════════════════════════════════
-  //  İlk Yükleme
+  //  بارگذاری اولیه
   // ══════════════════════════════════════════════════════════
 
   let _dataLoaded = false;
@@ -216,7 +216,7 @@
         cb();
       });
       _dataCallbacks = [];
-      // Yükleme sonrası giriş penceresini göster
+      // بعد از لود، پنجره لاگین را نشان بده
       const systemModal = document.getElementById("initialLoginModal");
       if (systemModal)
         systemModal.style.setProperty("display", "flex", "important");
@@ -245,11 +245,11 @@
     errEl.textContent = "";
 
     if (!u || !p) {
-      errEl.textContent = "Lütfen tüm alanları doldurun";
+      errEl.textContent = "لطفاً تمام فیلدها را پر کنید";
       return;
     }
 
-    errEl.textContent = "⏳ Giriş bilgileri kontrol ediliyor...";
+    errEl.textContent = "⏳ در حال بررسی اطلاعات ورود...";
 
     try {
       const response = await fetch(`${FUNCTIONS_BASE_URL}/secureLogin`, {
@@ -266,14 +266,14 @@
         if (typeof fillOccasionSelector === "function") {
           fillOccasionSelector(
             document.getElementById("selOccasion"),
-            "— Etkinlik Seçin —",
+            "— انتخاب مناسبت —",
           );
         }
       } else {
-        errEl.textContent = result.error || "Kullanıcı adı veya şifre hatalı";
+        errEl.textContent = result.error || "نام کاربری یا رمز اشتباه است";
       }
     } catch (err) {
-      errEl.textContent = "❌ Bulut sunucusuna bağlanılamadı";
+      errEl.textContent = "❌ خطا در اتصال به سرور ابری";
       console.error(err);
     }
   };
@@ -289,20 +289,27 @@
     const statusEl = document.getElementById("statusMessage");
     if (statusEl) statusEl.textContent = "";
 
-    // Eski oturumu temizle — yeniden giriş yapılmalı
-    sessionStorage.removeItem("initialLoggedIn");
-
     const myToast = document.getElementById("apToast");
     if (myToast) myToast.style.display = "none";
 
-    // Veriler yüklenene kadar Modal'ı gizli tut
-    // (loadAllData'dan sonra gösterilecek)
+    // سیستم لاگین حالا از index.html انجام می‌شود — modal نداریم
     const systemModal = document.getElementById("initialLoginModal");
     if (systemModal) systemModal.style.display = "none";
   });
 
   // ══════════════════════════════════════════════════════════
   //  Admin Panel Open/Close
+  // ══════════════════════════════════════════════════════════
+  //  تغییر زبان — سشن حفظ می‌شود، فقط صفحه عوض می‌شود
+  // ══════════════════════════════════════════════════════════
+
+  window.switchLang = function (lang) {
+    sessionStorage.setItem("initialLoggedIn", "true");
+    sessionStorage.setItem("albumLang", lang);
+    const map = { TR: "indexTR.html", FA: "indexFA.html", EN: "indexEN.html" };
+    window.location.href = map[lang] || "indexTR.html";
+  };
+
   // ══════════════════════════════════════════════════════════
 
   window.openAdmin = function () {
@@ -322,7 +329,7 @@
     const statusEl = document.getElementById("statusMessage");
     if (statusEl) statusEl.textContent = "";
 
-    // Overlay'i göster
+    // نمایش آورلی
     const overlay = document.getElementById("adminOverlay");
     if (overlay) overlay.style.display = "block";
 
@@ -345,14 +352,14 @@
     if (errEl) errEl.textContent = "";
 
     if (!u || !p) {
-      if (errEl) errEl.textContent = "Lütfen tüm alanları doldurun";
+      if (errEl) errEl.textContent = "لطفاً تمام فیلدها را پر کنید";
       return;
     }
 
-    if (errEl) errEl.textContent = "⏳ Admin giriş bilgileri kontrol ediliyor...";
+    if (errEl) errEl.textContent = "⏳ در حال بررسی اطلاعات ورود ادمین...";
 
     try {
-      // Sunucuya istek gönder (Render / localhost)
+      // ارسال درخواست به سرور (Render / localhost)
       const response = await fetch(`${FUNCTIONS_BASE_URL}/secureLogin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -362,22 +369,22 @@
       const result = await response.json();
 
       if (response.ok && result.success) {
-        // Admin girişi başarılı
+        // ورود موفقیت‌آمیز ادمین
         document.getElementById("loginCard").style.display = "none";
         document.getElementById("adminPanel").style.display = "flex";
 
-        // Geçici kalıcılık için oturum durumunu sessionStorage'a kaydet
+        // ذخیره وضعیت لاگین در sessionStorage برای ماندگاری موقت
         sessionStorage.setItem("adminLoggedIn", "true");
 
-        // Önceden kodda bulunan admin panel yardımcı fonksiyonlarını çalıştır
+        // اجرای توابع فرعی پنل ادمین که از قبل در کد داشتید
         if (typeof initAdminPanel === "function") initAdminPanel();
       } else {
         if (errEl)
           errEl.textContent =
-            result.error || "Admin kullanıcı adı veya şifresi hatalı";
+            result.error || "نام کاربری یا رمز عبور مدیریت اشتباه است";
       }
     } catch (err) {
-      if (errEl) errEl.textContent = "❌ Bulut sunucusuna bağlanılamadı";
+      if (errEl) errEl.textContent = "❌ خطا در اتصال به سرور ابری";
       console.error("Admin Login Error:", err);
     }
   };
@@ -447,15 +454,15 @@
       document.getElementById("cfgApiSecret").value || ""
     ).trim();
 
-    if (!cloudName) return showCfgStatus("⚠️ Cloud Name giriniz", "red");
-    if (!preset) return showCfgStatus("⚠️ Upload Preset giriniz", "red");
+    if (!cloudName) return showCfgStatus("⚠️ Cloud Name را وارد کنید", "red");
+    if (!preset) return showCfgStatus("⚠️ Upload Preset را وارد کنید", "red");
 
     setCfg("cloudName", cloudName);
     setCfg("preset", preset);
     if (apiKey) setCfg("apiKey", apiKey);
     if (apiSecret) setCfg("apiSecret", apiSecret);
 
-    showCfgStatus("✅ Ayarlar kaydedildi (tarayıcı kapanana kadar)", "green");
+    showCfgStatus("✅ تنظیمات ذخیره شد (تا بستن مرورگر)", "green");
   };
 
   function showCfgStatus(msg, color) {
@@ -476,12 +483,12 @@
     pwdTargetType = type;
     document.getElementById("pwdModalTitle").textContent =
       type === "system"
-        ? "🔐 Sistem Giriş Şifresini Değiştir"
-        : "🔑 Admin Paneli Şifresini Değiştir";
+        ? "🔐 تغییر رمز ورود به سیستم"
+        : "🔑 تغییر رمز پنل ادمین";
     document.getElementById("pwdModalDesc").textContent =
       type === "system"
-        ? "Mevcut ve yeni bilgileri girin"
-        : "Admin giriş bilgilerini girin";
+        ? "اطلاعات فعلی و جدید را وارد کنید"
+        : "اطلاعات ورود ادمین را وارد کنید";
     ["pwdNewUser", "pwdCurrentPass", "pwdNewPass", "pwdConfirmPass"].forEach(
       function (id) {
         document.getElementById(id).value = "";
@@ -506,7 +513,7 @@
     var applyBtn = document.getElementById("pwdApplyBtn");
     if (applyBtn) {
       applyBtn.disabled = false;
-      applyBtn.textContent = "Değiştir";
+      applyBtn.textContent = "تغییر";
     }
     document.getElementById("pwdChangeOverlay").classList.remove("open");
     pwdTargetType = "";
@@ -523,7 +530,7 @@
     errEl.style.color = "";
 
     if (!newUser) {
-      errEl.textContent = "⚠️ Yeni kullanıcı adını giriniz";
+      errEl.textContent = "⚠️ نام کاربری جدید را وارد کنید";
       return;
     }
 
@@ -531,21 +538,21 @@
     const pKey = pwdTargetType === "system" ? "sysPass" : "adminPass";
 
     if (currentPass !== cfg(pKey)) {
-      errEl.textContent = "⚠️ Mevcut şifre hatalı";
+      errEl.textContent = "⚠️ رمز عبور فعلی اشتباه است";
       return;
     }
     if (newPass.length < 6) {
-      errEl.textContent = "⚠️ Yeni şifre en az 6 karakter olmalıdır";
+      errEl.textContent = "⚠️ رمز جدید باید حداقل ۶ کاراکتر باشد";
       return;
     }
     if (newPass !== confirmPass) {
-      errEl.textContent = "⚠️ Yeni şifre ve tekrarı uyuşmuyor";
+      errEl.textContent = "⚠️ رمز جدید و تکرار آن مطابقت ندارند";
       return;
     }
 
     if (applyBtn) {
       applyBtn.disabled = true;
-      applyBtn.textContent = "⏳ Kaydediliyor...";
+      applyBtn.textContent = "⏳ در حال ذخیره...";
     }
 
     const fbUpdates =
@@ -558,13 +565,13 @@
       setCfg(uKey, newUser);
       setCfg(pKey, newPass);
       closePwdModal();
-      apToast("✅ Giriş bilgileri başarıyla Firebase'e kaydedildi");
+      apToast("✅ اطلاعات ورود با موفقیت در Firebase ذخیره شد");
     } else {
       if (applyBtn) {
         applyBtn.disabled = false;
-        applyBtn.textContent = "Değiştir";
+        applyBtn.textContent = "تغییر";
       }
-      errEl.textContent = "❌ Kaydetme hatası — lütfen tekrar deneyin";
+      errEl.textContent = "❌ خطا در ذخیره‌سازی — لطفاً دوباره تلاش کنید";
       errEl.style.color = "red";
     }
   };
@@ -603,7 +610,7 @@
         const sel = document.getElementById(id);
         if (!sel) return;
         const placeholder =
-          id === "selOccasion" ? "— Etkinlik Seçin —" : "Etkinlik seçin...";
+          id === "selOccasion" ? "— انتخاب مناسبت —" : "انتخاب مناسبت...";
         fillOccasionSel(sel, placeholder);
       },
     );
@@ -621,7 +628,7 @@
     const occ = manageOccasionSel.value;
     const currentVal = manageEventSel.value;
 
-    manageEventSel.innerHTML = '<option value="">Olay seçin...</option>';
+    manageEventSel.innerHTML = '<option value="">انتخاب رویداد...</option>';
     if (!occ || !window.DATA[occ]) return;
 
     window.DATA[occ].forEach(function (group, i) {
@@ -645,16 +652,16 @@
 
   window.createNewOccasion = async function () {
     const persianName = document.getElementById("newOccasionName").value.trim();
-    if (!persianName) return apToast("⚠️ Etkinlik adını giriniz");
-    // Benzersiz anahtar: occ_ + kısa timestamp
+    if (!persianName) return apToast("⚠️ نام مناسبت را وارد کنید");
+    // کلید یکتا: occ_ + timestamp کوتاه
     const englishKey = "occ_" + Date.now().toString(36);
 
     try {
-      apToast("⏳ Firebase'e kaydediliyor...");
-      // Firebase'e kaydet
+      apToast("⏳ در حال ذخیره در Firebase...");
+      // ذخیره در Firebase
       await rtdb.ref("/labels/" + englishKey).set(persianName);
-      // albums/englishKey için placeholder oluştur — aksi takdirde anahtar olmaz
-      // (Firebase boş nesneyi kaydetmez — olay yoksa anahtar da olmaz)
+      // albums/englishKey را با یک placeholder ایجاد کن تا کلید وجود داشته باشد
+      // (Firebase آبجکت خالی را ذخیره نمی‌کند — در صورت نبود رویداد، کلید وجود نخواهد داشت)
 
       window.DATA[englishKey] = [];
       window.LABELS[englishKey] = persianName;
@@ -662,27 +669,27 @@
       refreshAllSelectors();
       document.getElementById("newOccasionName").value = "";
       document.getElementById("newOccasionRef").value = "";
-      apToast(`✅ "${persianName}" etkinliği oluşturuldu ve Firebase'e kaydedildi`);
+      apToast(`✅ مناسبت "${persianName}" ایجاد و در Firebase ذخیره شد`);
     } catch (err) {
       console.error(err);
-      apToast("❌ Kaydetme hatası");
+      apToast("❌ خطا در ذخیره‌سازی");
     }
   };
 
   window.deleteOccasion = async function () {
     const key = document.getElementById("deleteOccasionSelector").value;
-    if (!key) return apToast("⚠️ Önce silinecek bir etkinlik seçin");
+    if (!key) return apToast("⚠️ ابتدا مناسبتی را برای حذف انتخاب کنید");
 
     const events = window.DATA[key] || [];
     if (events.length > 0) {
-      return apToast(`⛔ "${window.LABELS[key] || key}" etkinliğinde ${events.length} olay var — önce tüm olayları silin`);
+      return apToast(`⛔ مناسبت "${window.LABELS[key] || key}" دارای ${events.length} رویداد است — ابتدا تمام رویدادها را حذف کنید`);
     }
 
     const label = window.LABELS[key] || key;
-    if (!confirm(`"${label}" etkinliğini silmek istediğinizden emin misiniz?`)) return;
+    if (!confirm(`آیا مطمئنید که مناسبت "${label}" حذف شود؟`)) return;
 
     try {
-      apToast("⏳ Firebase'den siliniyor...");
+      apToast("⏳ در حال حذف از Firebase...");
       await rtdb.ref("/labels/" + key).remove();
       await rtdb.ref("/albums/" + key).remove();
       delete window.DATA[key];
@@ -690,22 +697,22 @@
       refreshAllSelectors();
       // reset selector
       const sel = document.getElementById("deleteOccasionSelector");
-      if (sel) { sel.innerHTML = '<option value="">Silinecek etkinliği seçin...</option>'; fillDeleteOccasionSelector(); }
-      apToast(`✅ "${label}" etkinliği silindi`);
+      if (sel) { sel.innerHTML = '<option value="">انتخاب مناسبت برای حذف...</option>'; fillDeleteOccasionSelector(); }
+      apToast(`✅ مناسبت "${label}" حذف شد`);
     } catch (err) {
       console.error(err);
-      apToast("❌ Silme hatası");
+      apToast("❌ خطا در حذف");
     }
   };
 
   function fillDeleteOccasionSelector() {
     const sel = document.getElementById("deleteOccasionSelector");
     if (!sel) return;
-    sel.innerHTML = '<option value="">Silinecek etkinliği seçin...</option>';
+    sel.innerHTML = '<option value="">انتخاب مناسبت برای حذف...</option>';
     Object.keys(window.DATA || {}).forEach(key => {
       const opt = document.createElement("option");
       opt.value = key;
-      opt.textContent = (window.LABELS[key] || key) + (window.DATA[key].length > 0 ? ` (${window.DATA[key].length} olay)` : " (boş)");
+      opt.textContent = (window.LABELS[key] || key) + (window.DATA[key].length > 0 ? ` (${window.DATA[key].length} رویداد)` : " (خالی)");
       sel.appendChild(opt);
     });
   }
@@ -714,12 +721,12 @@
   window.createNewEvent = async function () {
     const occ = document.getElementById("eventOccasionSelector").value;
     const label = document.getElementById("newEventName").value.trim();
-    if (!occ) return apToast("Etkinlik seçin");
-    if (!label) return apToast("Olay adını giriniz");
+    if (!occ) return apToast("مناسبت را انتخاب کنید");
+    if (!label) return apToast("نام رویداد را وارد کنید");
     if (!window.DATA[occ]) window.DATA[occ] = [];
 
     try {
-      apToast("⏳ Firebase'e kaydediliyor...");
+      apToast("⏳ در حال ذخیره در Firebase...");
       const key = fbKey();
       const order = window.DATA[occ].length;
       await rtdb.ref("/albums/" + occ + "/" + key).set({
@@ -728,27 +735,27 @@
         photos: {},
       });
       window.DATA[occ].push({ _fbKey: key, label: label, photos: [] });
-      apToast(`✅ "${label}" olayı eklendi ve Firebase'e kaydedildi`);
+      apToast(`✅ رویداد "${label}" اضافه و در Firebase ذخیره شد`);
       document.getElementById("newEventName").value = "";
       refreshAllSelectors();
     } catch (err) {
       console.error(err);
-      apToast("❌ Kaydetme hatası");
+      apToast("❌ خطا در ذخیره‌سازی");
     }
   };
 
   // ══════════════════════════════════════════════════════════
-  //  Fetch Event Photos (Admin Paneli için)
+  //  Fetch Event Photos (برای پنل ادمین)
   // ══════════════════════════════════════════════════════════
 
   window.fetchEventPhotos = function () {
     const occ = document.getElementById("manageOccasionSelector").value;
     const eventIdx = document.getElementById("manageEventSelector").value;
-    if (!occ) return apToast("⚠️ Önce etkinliği seçin");
-    if (eventIdx === "") return apToast("⚠️ Önce olayı seçin");
+    if (!occ) return apToast("⚠️ ابتدا مناسبت را انتخاب کنید");
+    if (eventIdx === "") return apToast("⚠️ ابتدا رویداد را انتخاب کنید");
 
     const event = window.DATA[occ][eventIdx];
-    if (!event) return apToast("Olay bulunamadı");
+    if (!event) return apToast("رویداد پیدا نشد");
     const photos = event.photos || [];
 
     apQueue = photos.map(function (p, idx) {
@@ -769,13 +776,13 @@
       const grid = document.getElementById("adminPhotoGrid");
       if (grid)
         grid.innerHTML =
-          '<p style="color:#a07850;font-size:0.85rem;padding:8px">Bu olayda henüz fotoğraf yok</p>';
-      apToast(`"${event.label}" olayı — fotoğraf yok`);
+          '<p style="color:#a07850;font-size:0.85rem;padding:8px">این رویداد هنوز عکسی ندارد</p>';
+      apToast(`رویداد "${event.label}" — بدون عکس`);
       return;
     }
 
     renderAdminPhotoGrid();
-    apToast(`✅ "${event.label}" olayı — ${apQueue.length} fotoğraf`);
+    apToast(`✅ رویداد "${event.label}" — ${apQueue.length} عکس`);
   };
 
   window.updateExistingPhotoTitle = function (
@@ -786,7 +793,7 @@
   ) {
     if (window.DATA[occ]?.[eventIdx]?.photos?.[photoIdx] !== undefined) {
       window.DATA[occ][eventIdx].photos[photoIdx].title = newTitle;
-      // Firebase'de güncelle
+      // بروزرسانی در Firebase
       const ev = window.DATA[occ][eventIdx];
       const photo = ev.photos[photoIdx];
       if (ev._fbKey && photo._fbKey) {
@@ -849,29 +856,29 @@
   }
 
   window.deleteExistingPhoto = async function (occ, eventIdx, photoIdx) {
-    if (!confirm("Bu fotoğraf olaydan ve Cloudinary'den silinsin mi?")) return;
+    if (!confirm("این عکس از رویداد و کلودینری حذف شود؟")) return;
     if (!window.DATA[occ]?.[eventIdx]) return;
 
     const ev = window.DATA[occ][eventIdx];
     const photo = ev.photos[photoIdx];
     if (!photo) return;
 
-    // Cloudinary'den sil
+    // حذف از کلودینری
     const r = await cloudinaryDelete(photo.src);
-    if (r === "ok") apToast("🗑 Fotoğraf Cloudinary'den ve albümden silindi");
+    if (r === "ok") apToast("🗑 عکس از کلودینری و آلبوم حذف شد");
     else if (r === "skip")
-      apToast("🗑 Fotoğraf albümden silindi (API Key/Secret ayarlanmamış)");
-    else apToast("🗑 Fotoğraf albümden silindi (Cloudinary hatası)");
+      apToast("🗑 عکس از آلبوم حذف شد (API Key/Secret تنظیم نشده)");
+    else apToast("🗑 عکس از آلبوم حذف شد (خطا در کلودینری)");
 
-    // Firebase'den sil
+    // حذف از Firebase
     if (ev._fbKey && photo._fbKey) {
       await deletePhotoFromFB(occ, ev._fbKey, photo._fbKey);
     }
 
-    // Yerel bellekten sil
+    // حذف از حافظه محلی
     ev.photos.splice(photoIdx, 1);
 
-    // Kalan fotoğrafların sırasını Firebase'de güncelle
+    // بروزرسانی order عکس‌های باقیمانده در Firebase
     if (ev._fbKey) {
       const updates = {};
       ev.photos.forEach(function (p, idx) {
@@ -899,8 +906,8 @@
   window.deleteEntireEvent = async function () {
     const occ = document.getElementById("manageOccasionSelector").value;
     const eventIdx = document.getElementById("manageEventSelector").value;
-    if (!occ) return apToast("Etkinlik seçin");
-    if (eventIdx === "") return apToast("Olay seçin");
+    if (!occ) return apToast("مناسبت را انتخاب کنید");
+    if (eventIdx === "") return apToast("رویداد را انتخاب کنید");
 
     const event = window.DATA[occ][eventIdx];
     const label = event.label;
@@ -908,13 +915,13 @@
 
     if (
       !confirm(
-        `"${label}" olayı ve ${photos.length} fotoğrafın tamamı siteden ve Cloudinary'den silinsin mi?`,
+        `رویداد "${label}" و تمام ${photos.length} عکسش از سایت و کلودینری پاک شود؟`,
       )
     )
       return;
 
     if (photos.length > 0) {
-      apToast(`⏳ ${photos.length} fotoğraf Cloudinary'den siliniyor...`);
+      apToast(`⏳ در حال حذف ${photos.length} عکس از کلودینری...`);
       let ok = 0,
         skipped = 0,
         failed = 0;
@@ -926,19 +933,19 @@
       }
       if (skipped === photos.length)
         apToast(
-          `🗑 "${label}" olayı silindi (API Key/Secret ayarlanmamış — Cloudinary değişmedi)`,
+          `🗑 رویداد "${label}" حذف شد (API Key/Secret تنظیم نشده — کلودینری دست‌نخورده)`,
         );
       else if (failed > 0)
-        apToast(`⚠️ ${ok} fotoğraf Cloudinary'den silindi — ${failed} hatalı`);
-      else apToast(`✅ ${ok} fotoğraf Cloudinary'den ve "${label}" olayından silindi`);
+        apToast(`⚠️ ${ok} عکس از کلودینری حذف شد — ${failed} با خطا`);
+      else apToast(`✅ ${ok} عکس از کلودینری و رویداد "${label}" حذف شد`);
     } else {
-      apToast(`🗑 "${label}" olayı silindi`);
+      apToast(`🗑 رویداد "${label}" حذف شد`);
     }
 
-    // Firebase'den sil
+    // حذف از Firebase
     if (event._fbKey) await deleteEventFromFB(occ, event._fbKey);
 
-    // Yerel bellekten sil
+    // حذف از حافظه محلی
     window.DATA[occ].splice(parseInt(eventIdx), 1);
     await reorderEventsFB(occ);
 
@@ -965,7 +972,7 @@
 
   window.handleFileSelect = function (e) {
     const imgs = [...e.target.files].filter((f) => f.type.startsWith("image/"));
-    if (!imgs.length) return apToast("Bir görüntü dosyası seçin");
+    if (!imgs.length) return apToast("فایل تصویری انتخاب کنید");
 
     const progressWrap = document.getElementById("uploadProgressWrap");
     const progressBar = document.getElementById("uploadProgressBar");
@@ -980,7 +987,9 @@
     progressBar.style.background = "#c8923a";
     if (statusEl) statusEl.textContent = "";
     progressLabel.textContent =
-      "⏳ Okunuyor 1 / " + total + "...";
+      "\u23F3 \u062F\u0631 \u062D\u0627\u0644 \u062E\u0648\u0627\u0646\u062F\u0646 1 \u0627\u0632 " +
+      total +
+      "...";
 
     imgs.forEach(function (file) {
       const id = "q" + Date.now() + Math.random().toString(36).slice(2, 6);
@@ -1009,10 +1018,16 @@
 
         if (loaded < total) {
           progressLabel.textContent =
-            "⏳ Okunuyor " + (loaded + 1) + " / " + total + "...";
+            "\u23F3 \u062F\u0631 \u062D\u0627\u0644 \u062E\u0648\u0627\u0646\u062F\u0646 " +
+            (loaded + 1) +
+            " \u0627\u0632 " +
+            total +
+            "...";
         } else {
           progressLabel.textContent =
-            "✅ " + total + " fotoğraf Cloudinary'e yüklemeye hazır";
+            "\u2705 " +
+            total +
+            " \u0639\u06A9\u0633 \u0622\u0645\u0627\u062F\u0647 \u0622\u067E\u0644\u0648\u062F \u0628\u0647 \u06A9\u0644\u0648\u062F\u06CC\u0646\u0631\u06CC";
           progressBar.style.background = "#4caf50";
           setTimeout(function () {
             progressWrap.style.display = "none";
@@ -1028,7 +1043,8 @@
       reader.onerror = function () {
         loaded++;
         progressLabel.textContent =
-          "⚠️ Okuma hatası: " + file.name;
+          "\u26A0\uFE0F \u062E\u0637\u0627 \u062F\u0631 \u062E\u0648\u0627\u0646\u062F\u0646: " +
+          file.name;
         if (loaded === total) {
           setTimeout(function () {
             progressWrap.style.display = "none";
@@ -1061,7 +1077,7 @@
                 : p.status === "error"
                   ? '<div class="apg-badge apg-error">✗</div>'
                   : "";
-        return `<div class="apg-item" id="apgitem-${p.id}">${s}<img src="${p.preview}" alt=""><input class="apg-title" type="text" value="${p.title.replace(/"/g, "&quot;")}" placeholder="Fotoğraf başlığı" onchange="updatePhotoTitle('${p.id}',this.value)"><button class="apg-del" onclick="removeFromQueue('${p.id}')" title="Sil">🗑</button></div>`;
+        return `<div class="apg-item" id="apgitem-${p.id}">${s}<img src="${p.preview}" alt=""><input class="apg-title" type="text" value="${p.title.replace(/"/g, "&quot;")}" placeholder="عنوان عکس" onchange="updatePhotoTitle('${p.id}',this.value)"><button class="apg-del" onclick="removeFromQueue('${p.id}')" title="حذف">🗑</button></div>`;
       })
       .join("");
   }
@@ -1082,15 +1098,15 @@
   };
 
   // ══════════════════════════════════════════════════════════
-  //  Upload to Cloudinary — ve doğrudan Firebase'e kaydet
+  //  Upload to Cloudinary — و ذخیره مستقیم در Firebase
   // ══════════════════════════════════════════════════════════
 
-  // ── Yükleme durdurma kontrol değişkeni ──
+  // ── متغیر کنترل توقف آپلود ──
   let _uploadCancelled = false;
 
   window.cancelUpload = function () {
     _uploadCancelled = true;
-    apToast("⛔ Yükleme durduruluyor...");
+    apToast("⛔ آپلود در حال توقف...");
     const stopBtn = document.getElementById("stopUploadBtn");
     if (stopBtn) stopBtn.disabled = true;
   };
@@ -1100,13 +1116,13 @@
     const eventIdx =
       document.getElementById("manageEventSelector")?.value ?? "";
 
-    if (!occ) return apToast("⚠️ Önce etkinliği seçin");
-    if (eventIdx === "") return apToast("⚠️ Önce olayı seçin");
+    if (!occ) return apToast("⚠️ ابتدا مناسبت را انتخاب کنید");
+    if (eventIdx === "") return apToast("⚠️ ابتدا رویداد را انتخاب کنید");
 
     const toProcess = apQueue.filter(
       (p) => p.status === "pending" || p.status === "existing",
     );
-    if (!toProcess.length) return apToast("Kuyrukta hiç fotoğraf yok");
+    if (!toProcess.length) return apToast("هیچ عکسی در صف وجود ندارد");
 
     const existingPhotos = toProcess.filter((p) => p.status === "existing");
     const pendingPhotos = toProcess.filter((p) => p.status === "pending");
@@ -1116,14 +1132,14 @@
       const srcEventIdx = existingPhotos[0].srcEventIdx;
       if (srcOcc === occ && String(srcEventIdx) === String(eventIdx)) {
         return apToast(
-          "⚠️ Kaynak ve hedef aynı — hedef etkinliği/olayı değiştirin",
+          "⚠️ مبدأ و مقصد یکسان است — مناسبت/رویداد مقصد را تغییر دهید",
         );
       }
     }
 
-    // 🔒 Yeni yükleme koşulları güncellendi: client-side kontrol gerekmez, ancak Cloudinary adını tutuyoruz
+    // 🔒 بررسی شرط‌های آپلود جدید تغییر کرد: دیگر نیازی به چک کردن کلاینت‌ساید نیست، اما نام کلودینری را نگه می‌داریم
     if (pendingPhotos.length > 0) {
-      if (!_cfg.cloudName) return apToast("Cloud Name ayarlanmamış");
+      if (!_cfg.cloudName) return apToast("Cloud Name تنظیم نشده است");
     }
 
     const progressWrap = document.getElementById("uploadProgressWrap");
@@ -1132,7 +1148,7 @@
     const statusEl = document.getElementById("statusMessage");
     const stopBtn = document.getElementById("stopUploadBtn");
 
-    // Durdur butonunu etkinleştir
+    // فعال‌سازی دکمه توقف
     _uploadCancelled = false;
     if (stopBtn) { stopBtn.style.display = "inline-flex"; stopBtn.disabled = false; }
 
@@ -1152,17 +1168,17 @@
       ev._fbKey = key;
     }
 
-    // ── Tek fotoğraf yükleme fonksiyonu (özel imzayla) ──
+    // ── تابع آپلود یک عکس به کلودینری (با امضای اختصاصی) ──
     async function uploadSinglePhoto(photo, idx) {
       if (_uploadCancelled) return "cancelled";
 
       photo.status = "uploading";
       renderAdminPhotoGrid();
-      progressLabel.textContent = `Yükleniyor ${idx + 1}/${total}: ${photo.title || "Başlıksız"}`;
+      progressLabel.textContent = `آپلود ${idx + 1} از ${total}: ${photo.title || "بدون عنوان"}`;
 
       try {
-        // Her fotoğraf için ayrı imza al
-        // İmzaya dahil edilmesi için context'i sunucuya gönder
+        // دریافت امضای جداگانه برای هر عکس
+        // ارسال context به سرور تا در امضا گنجانده شود
         const contextVal = photo.title ? `caption=${photo.title}` : null;
         const sigResponse = await fetch(
           `${FUNCTIONS_BASE_URL}/getCloudinarySignature`,
@@ -1178,12 +1194,12 @@
 
         if (!sigResponse.ok) {
           const errText = await sigResponse.text();
-          throw new Error(`Sunucu yanıt verdi ${sigResponse.status}: ${errText}`);
+          throw new Error(`سرور پاسخ داد ${sigResponse.status}: ${errText}`);
         }
 
         const sigData = await sigResponse.json();
         if (!sigData.success) {
-          throw new Error(sigData.error || "Sunucudan imza alınamadı");
+          throw new Error(sigData.error || "خطا در دریافت امضا از سرور");
         }
 
         const formData = new FormData();
@@ -1213,16 +1229,16 @@
           throw new Error(cloudErr);
         }
       } catch (err) {
-        console.error(`❌ ${photo.title} yüklenemedi:`, err.message);
+        console.error(`❌ آپلود ${photo.title} شکست خورد:`, err.message);
         photo.status = "error";
         return "error";
       }
     }
 
-    // ── Mevcut fotoğrafları aktar (Firebase write olduğu için sıralı) ──
+    // ── انتقال عکس‌های موجود (sequential چون Firebase write است) ──
     for (const photo of toProcess.filter(p => p.status === "existing")) {
       if (_uploadCancelled) break;
-      progressLabel.textContent = `Aktarılıyor: ${photo.title}`;
+      progressLabel.textContent = `انتقال: ${photo.title}`;
       const srcEv = window.DATA[photo.srcOcc]?.[photo.srcEventIdx];
       const srcArr = srcEv?.photos;
       if (!window.DATA[occ][parseInt(eventIdx)].photos)
@@ -1243,7 +1259,7 @@
       renderAdminPhotoGrid();
     }
 
-    // ── Yeni fotoğrafları paralel yükle (3 eşzamanlı) ──
+    // ── آپلود موازی عکس‌های جدید (۳ تا همزمان) ──
     const pendingQueue = toProcess.filter(p => p.status === "pending" || p.status === "uploading");
     const CONCURRENCY = 3;
 
@@ -1262,7 +1278,7 @@
 
     for (let i = 0; i < pendingQueue.length; i += CONCURRENCY) {
       if (_uploadCancelled) {
-        apToast(`⛔ Yükleme durduruldu. Başarılı: ${successCount} | Hatalı: ${errorCount}`);
+        apToast(`⛔ آپلود متوقف شد. موفق: ${successCount} | خطا: ${errorCount}`);
         if (stopBtn) stopBtn.style.display = "none";
         return;
       }
@@ -1270,9 +1286,9 @@
       await runBatch(batch, i);
     }
 
-    // Tamamlandıktan sonra Durdur butonunu gizle
+    // مخفی کردن دکمه توقف بعد از اتمام
     if (stopBtn) stopBtn.style.display = "none";
-    apToast(`✅ İşlem tamamlandı. Başarılı: ${successCount} | Hatalı: ${errorCount}`);
+    apToast(`✅ عملیات پایان یافت. موفق: ${successCount} | خطا: ${errorCount}`);
   };
 
   // ══════════════════════════════════════════════════════════

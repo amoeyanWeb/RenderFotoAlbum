@@ -1381,3 +1381,60 @@ body {
   flex: 1;
   justify-content: center;
 }
+
+/* ── دکمه‌های زبان (پرچم) در هدر ── */
+.lang-switcher {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 10px;
+}
+.lang-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+  transition:
+    border-color 0.2s,
+    transform 0.15s;
+  flex-shrink: 0;
+}
+.lang-btn:hover {
+  border-color: var(--gold);
+  transform: scale(1.12);
+}
+.lang-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ── موبایل: دکمه‌های آپلود در دو ردیف دوتایی ── */
+@media (max-width: 600px) {
+  .upload-btn-group {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  .upload-btn-group .abtn {
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+    font-size: 0.78rem !important;
+    padding: 8px 6px !important;
+  }
+  .upload-btn-group #stopUploadBtn {
+    display: none;
+  }
+  .upload-btn-group #stopUploadBtn[style*="inline"],
+  .upload-btn-group #stopUploadBtn[style*="flex"],
+  .upload-btn-group #stopUploadBtn[style*="block"] {
+    display: flex !important;
+  }
+}

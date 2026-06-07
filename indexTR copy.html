@@ -1,0 +1,1346 @@
+<html lang="tr" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Anı Albümü</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&amp;family=Vazirmatn:wght@300;400;500;600&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+    <style>
+      /* ── Admin Photo Grid ── */
+      .apg-item {
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #f5efe8;
+        border: 1.5px solid #e0d0be;
+        display: flex;
+        flex-direction: column;
+      }
+      .apg-item img {
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: cover;
+        display: block;
+      }
+      .apg-title {
+        font-size: 0.72rem;
+        border: none;
+        border-top: 1px solid #e0d0be;
+        padding: 4px 6px;
+        background: transparent;
+        text-align: right;
+        font-family: inherit;
+        width: 100%;
+        box-sizing: border-box;
+        color: #5a3e28;
+      }
+      .apg-title:focus {
+        outline: none;
+        background: #fff8f0;
+      }
+      .apg-del {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        background: rgba(0, 0, 0, 0.56);
+        border: none;
+        border-radius: 50%;
+        color: #fff;
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        line-height: 1;
+      }
+      .apg-del:hover {
+        background: rgba(200, 30, 30, 0.8);
+      }
+      .apg-badge {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        font-size: 12px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+      }
+      .apg-done {
+        background: #3a9a5c;
+      }
+      .apg-uploading {
+        background: #c8923a;
+        animation: apg-pulse 0.8s infinite alternate;
+      }
+      .apg-error {
+        background: #c0392b;
+      }
+      @keyframes apg-pulse {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0.41;
+        }
+      }
+    </style>
+
+    <style>
+      /* ── Admin Panel Scroll Fix ── */
+      #adminPanel {
+        flex-direction: column !important;
+        height: 88vh !important;
+        max-height: 88vh !important;
+        overflow: hidden !important;
+      }
+      #adminPanel .ap-header {
+        flex-shrink: 0 !important;
+      }
+      #adminPanel .admin-tabs {
+        flex-shrink: 0 !important;
+      }
+      #adminPanel .ap-body {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Initial Login Modal KALDIRILDI — Giriş artık index.html üzerinden yapılıyor -->
+    <nav class="topbar">
+      <div class="topbar-brand">Anı Albümü</div>
+      <div class="topbar-count" id="topbarCount"></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <!-- Dil değiştirme butonları -->
+        <div class="lang-switcher">
+          <!-- Türkçe — oturum korunarak geçiş -->
+          <button class="lang-btn" title="Türkçe" onclick="switchLang('TR')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+              <rect width="900" height="600" fill="#E30A17"/>
+              <circle cx="341" cy="300" r="120" fill="#ffffff"/>
+              <circle cx="376" cy="300" r="97" fill="#E30A17"/>
+              <polygon points="583,300 469.4,340.5 502.4,224.1 502.4,375.9 469.4,259.5" fill="#ffffff"/>
+            </svg>
+          </button>
+          <!-- Farsça — oturum korunarak geçiş -->
+          <button class="lang-btn" title="Farsça" onclick="switchLang('FA')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+              <rect width="900" height="600" fill="#239f40"/>
+              <rect y="200" width="900" height="200" fill="#ffffff"/>
+              <rect y="400" width="900" height="200" fill="#da0000"/>
+              <text x="450" y="330" font-size="80" text-anchor="middle" fill="#da0000" font-family="serif">☀</text>
+            </svg>
+          </button>
+          <!-- İngilizce — oturum korunarak geçiş -->
+          <button class="lang-btn" title="English" onclick="switchLang('EN')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30">
+              <rect width="60" height="30" fill="#012169"/>
+              <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
+              <path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="4"/>
+              <path d="M30,0 V30 M0,15 H60" stroke="#fff" stroke-width="10"/>
+              <path d="M30,0 V30 M0,15 H60" stroke="#C8102E" stroke-width="6"/>
+            </svg>
+          </button>
+        </div>
+        <img
+          src="./pics/tac.png"
+          style="width: 50px; height: 50px; border-radius: 50%; opacity: 0.8"
+        />
+      </div>
+    </nav>
+
+    <div class="hero">
+      <h1 class="hero-title"><em>Anıların Hazinesi</em></h1>
+      <p class="hero-sub">Her fotoğraf, eşsiz bir anın ölümsüz hikâyesidir</p>
+      <div class="hero-divider"></div>
+      <div class="filters">
+        <div class="filter-group">
+          <div class="filter-label">Etkinlik</div>
+          <select class="filter-select" id="selOccasion" fdprocessedid="l8dry">
+            <option value="">— Etkinlik Seçin —</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <div class="filter-label">Olay</div>
+          <select class="filter-select" id="selDate" fdprocessedid="omib6r">
+            <option value="">— Olay Seçin —</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar" id="toolbar" style="display: flex">
+      <div class="toolbar-info" id="toolbarInfo">
+        <strong>13</strong> Fotoğraf
+      </div>
+      <div class="view-btns">
+        <button
+          class="view-btn active"
+          id="btnSmall"
+          title="Küçük Izgara"
+          onclick="setView('small')"
+          fdprocessedid="yp1bo9"
+        >
+          <svg viewBox="0 0 20 20">
+            <rect x="2" y="2" width="7" height="7" rx="1.5"></rect>
+            <rect x="11" y="2" width="7" height="7" rx="1.5"></rect>
+            <rect x="2" y="11" width="7" height="7" rx="1.5"></rect>
+            <rect x="11" y="11" width="7" height="7" rx="1.5"></rect>
+          </svg>
+        </button>
+        <button
+          class="view-btn"
+          id="btnLarge"
+          title="büyük Izgara"
+          onclick="setView('large')"
+          fdprocessedid="b9m15h"
+        >
+          <svg viewBox="0 0 20 20">
+            <rect x="2" y="2" width="7.5" height="16" rx="1.5"></rect>
+            <rect x="11.5" y="2" width="6.5" height="7.5" rx="1.5"></rect>
+            <rect x="11.5" y="11.5" width="6.5" height="6.5" rx="1.5"></rect>
+          </svg>
+        </button>
+        <button
+          class="view-btn"
+          id="btnSlide"
+          title="Slayt"
+          onclick="setView('slide')"
+          fdprocessedid="noxlju"
+        >
+          <svg viewBox="0 0 20 20">
+            <rect x="1" y="4" width="18" height="12" rx="2"></rect>
+            <path d="M8 8l4 2-4 2V8z" fill="#fff"></path>
+          </svg>
+        </button>
+        <button
+          class="view-btn"
+          id="btnAuto"
+          title="Otomatik Slayt"
+          onclick="setView('auto')"
+          fdprocessedid="1hkp7"
+        >
+          <svg viewBox="0 0 20 20">
+            <circle
+              cx="10"
+              cy="10"
+              r="8"
+              stroke-width="1.5"
+              stroke="currentColor"
+              fill="none"
+            ></circle>
+            <path d="M8 7l5 3-5 3V7z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="content" id="content">
+      <div class="empty">
+        <div class="empty-icon">📷</div>
+        <h3>Albümünüzü Seçin</h3>
+        <p>Yukarıdaki menüden etkinliğinizi seçin</p>
+      </div>
+    </div>
+
+    <div class="fs-overlay" id="fsOverlay">
+      <button class="fs-close" id="fsClose">×</button>
+      <button class="fs-nav prev" id="fsPrev">›</button>
+      <button class="fs-nav next" id="fsNext">‹</button>
+      <img id="fsImg" src="" alt="" />
+      <div class="fs-caption" id="fsCaption"></div>
+      <div class="fs-counter" id="fsCnt"></div>
+      <div class="fs-timer-bar-wrap">
+        <div class="fs-timer-bar" id="fsTimerBar"></div>
+      </div>
+    </div>
+
+    <div class="lightbox" id="lightbox">
+      <button class="lightbox-close" onclick="closeLightbox()">×</button>
+      <img id="lbImg" src="" alt="" />
+      <div class="lightbox-info" id="lbInfo"></div>
+    </div>
+
+    <!-- data.js removed — data comes from Firebase -->
+    <script>
+      // fillOccasionSelector — uses window.DATA and window.LABELS populated by app.js from Firebase
+      function fillOccasionSelector(selEl, placeholder) {
+        if (!selEl) return;
+        const current = selEl.value;
+        selEl.innerHTML = `<option value="">${placeholder}</option>`;
+        Object.keys(window.DATA || {}).forEach((key) => {
+          const opt = document.createElement("option");
+          opt.value = key;
+          opt.textContent = (window.LABELS || {})[key] || key;
+          selEl.appendChild(opt);
+        });
+        if (current) selEl.value = current;
+      }
+
+      let currentPhotos = [],
+        currentView = "small",
+        slideIndex = 0;
+      let autoTimer = null,
+        autoInterval = 3000,
+        autoPaused = false;
+      let fsTimer = null,
+        fsPaused = false;
+
+      // Selectors and event listeners are connected after Firebase data loads
+      document.addEventListener("DOMContentLoaded", function () {
+        const selOccasion = document.getElementById("selOccasion");
+        const selDate = document.getElementById("selDate");
+        const toolbar = document.getElementById("toolbar");
+        const content = document.getElementById("content");
+        const topbarCount = document.getElementById("topbarCount");
+
+        function hideAll() {
+          toolbar.style.display = "none";
+          content.innerHTML =
+            '<div class="empty"><div class="empty-icon">📷</div><h3>Albümünüzü Seçin</h3><p>Yukarıdaki menüden etkinliğinizi seçin</p></div>';
+          if (topbarCount) topbarCount.textContent = "";
+        }
+
+        // Wait for app.js to load Firebase data
+        function waitForData(cb) {
+          if (
+            window.DATA &&
+            Object.keys(window.DATA).length >= 0 &&
+            window._dataLoaded
+          ) {
+            cb();
+          } else {
+            setTimeout(() => waitForData(cb), 150);
+          }
+        }
+
+        waitForData(function () {
+          fillOccasionSelector(selOccasion, "— Etkinlik Seçin —");
+        });
+
+        selOccasion.addEventListener("change", () => {
+          const occ = selOccasion.value;
+          selDate.innerHTML = "";
+          if (!occ) {
+            selDate.disabled = true;
+            selDate.innerHTML = "<option>Önce bir etkinlik seçin</option>";
+            hideAll();
+            return;
+          }
+          selDate.disabled = false;
+          const opt0 = document.createElement("option");
+          opt0.value = "";
+          opt0.textContent = "— Olay Seçin —";
+          selDate.appendChild(opt0);
+          (window.DATA[occ] || []).forEach((group, i) => {
+            const o = document.createElement("option");
+            o.value = i;
+            o.textContent = group.label;
+            selDate.appendChild(o);
+          });
+          hideAll();
+        });
+
+        selDate.addEventListener("change", () => {
+          const occ = selOccasion.value;
+          const idx = selDate.value;
+          if (!occ || idx === "") {
+            hideAll();
+            return;
+          }
+          currentPhotos = ((window.DATA[occ] || [])[idx] || {}).photos || [];
+          toolbar.style.display = "flex";
+          if (topbarCount)
+            topbarCount.textContent = currentPhotos.length + " Fotoğraf";
+          render();
+        });
+
+        hideAll();
+      });
+
+      function setView(v) {
+        clearAutoTimer();
+        currentView = v;
+        ["small", "large", "slide", "auto"].forEach((x) => {
+          const el = document.getElementById(
+            "btn" + x.charAt(0).toUpperCase() + x.slice(1),
+          );
+          if (el) el.classList.remove("active");
+        });
+        const active = document.getElementById(
+          "btn" + v.charAt(0).toUpperCase() + v.slice(1),
+        );
+        if (active) active.classList.add("active");
+        render();
+      }
+
+      function render() {
+        const info = document.getElementById("toolbarInfo");
+        info.innerHTML = `<strong>${currentPhotos.length}</strong> Fotoğraf`;
+
+        if (currentView === "slide") {
+          renderSlide();
+          return;
+        }
+        if (currentView === "auto") {
+          renderAuto();
+          return;
+        }
+
+        const cls = currentView === "small" ? "grid-small" : "grid-large";
+        content.innerHTML = `<div class="${cls}" id="grid"></div>`;
+        const grid = document.getElementById("grid");
+        currentPhotos.forEach((p, i) => {
+          const card = document.createElement("div");
+          card.className = "photo-card";
+          card.style.animationDelay = i * 0.04 + "s";
+          card.innerHTML = `<img src="${p.src}" alt="${p.title}" loading="lazy"/>`;
+          card.onclick = () => openLightbox(i);
+          grid.appendChild(card);
+        });
+        document
+          .getElementById("btnSmall")
+          .classList.toggle("active", currentView === "small");
+        document
+          .getElementById("btnLarge")
+          .classList.toggle("active", currentView === "large");
+      }
+
+      function renderAuto() {
+        slideIndex = 0;
+        autoPaused = false;
+        content.innerHTML = `
+    <div class="slideshow-wrap" id="slideWrap" style="cursor:zoom-in" title="Tam ekran için tıklayın">
+      <img id="slideImg" src="${currentPhotos[0].src}" alt="${currentPhotos[0].title}"/>
+      <div class="slide-caption" id="slideCaption">${currentPhotos[0].title}</div>
+      <button class="slide-nav prev" onclick="event.stopPropagation();moveSlide(-1);resetAutoTimer()">›</button>
+      <button class="slide-nav next" onclick="event.stopPropagation();moveSlide(1);resetAutoTimer()">‹</button>
+      <div class="slide-counter" id="slideCnt">1 / ${currentPhotos.length}</div>
+    </div>
+    <div class="timer-bar-wrap"><div class="timer-bar" id="timerBar"></div></div>
+    <div class="auto-controls">
+      <button class="auto-ctrl-btn" id="btnPause" onclick="toggleAutoPause()">⏸ Durdur</button>
+      <span class="speed-label">Her görselin süresi:</span>
+      <select class="speed-select" id="speedSelect" onchange="changeSpeed(this.value)">
+        <option value="2000">saniye 2</option>
+        <option value="3000" selected>saniye 3</option>
+        <option value="5000"> saniye 5</option>
+        <option value="8000"> saniye 8</option>
+        <option value="12000"> saniye 12</option>
+      </select>
+    </div>
+    <div class="slide-dots" id="slideDots"></div>`;
+
+        document
+          .getElementById("slideWrap")
+          .addEventListener("click", function (e) {
+            if (e.target.classList.contains("slide-nav")) return;
+            openFullscreen(slideIndex);
+          });
+        const dots = document.getElementById("slideDots");
+        currentPhotos.forEach((_, i) => {
+          const d = document.createElement("button");
+          d.className = "slide-dot" + (i === 0 ? " active" : "");
+          d.onclick = () => {
+            goSlide(i);
+            resetAutoTimer();
+          };
+          dots.appendChild(d);
+        });
+        startAutoTimer();
+      }
+
+      function startAutoTimer() {
+        clearAutoTimer();
+        if (autoPaused) return;
+        const bar = document.getElementById("timerBar");
+        if (!bar) return;
+        bar.style.transition = "none";
+        bar.style.width = "0%";
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            bar.style.transition = `width ${autoInterval}ms linear`;
+            bar.style.width = "100%";
+          });
+        });
+        autoTimer = setTimeout(() => {
+          moveSlide(1);
+          startAutoTimer();
+        }, autoInterval);
+      }
+
+      function clearAutoTimer() {
+        if (autoTimer) {
+          clearTimeout(autoTimer);
+          autoTimer = null;
+        }
+        const bar = document.getElementById("timerBar");
+        if (bar) {
+          bar.style.transition = "none";
+          bar.style.width = "0%";
+        }
+      }
+
+      function resetAutoTimer() {
+        startAutoTimer();
+      }
+
+      function toggleAutoPause() {
+        autoPaused = !autoPaused;
+        const btn = document.getElementById("btnPause");
+        if (autoPaused) {
+          clearAutoTimer();
+          btn.textContent = "▶ Demvam et";
+          btn.classList.add("active-pause");
+        } else {
+          btn.textContent = "⏸ Durdur";
+          btn.classList.remove("active-pause");
+          startAutoTimer();
+        }
+      }
+
+      function changeSpeed(val) {
+        autoInterval = parseInt(val);
+        if (!autoPaused) resetAutoTimer();
+      }
+
+      function renderSlide() {
+        document.getElementById("btnSlide").classList.add("active");
+        slideIndex = 0;
+        content.innerHTML = `
+    <div class="slideshow-wrap" id="slideWrap" style="cursor:zoom-in" title="Tam ekran için tıklayın">
+      <img id="slideImg" src="${currentPhotos[0].src}" alt="${currentPhotos[0].title}"/>
+      <div class="slide-caption" id="slideCaption">${currentPhotos[0].title}</div>
+      <button class="slide-nav prev" onclick="event.stopPropagation();moveSlide(-1)">›</button>
+      <button class="slide-nav next" onclick="event.stopPropagation();moveSlide(1)">‹</button>
+      <div class="slide-counter" id="slideCnt">1 / ${currentPhotos.length}</div>
+    </div>
+    <div class="slide-dots" id="slideDots"></div>`;
+        document
+          .getElementById("slideWrap")
+          .addEventListener("click", function (e) {
+            if (e.target.classList.contains("slide-nav")) return;
+            openFullscreen(slideIndex);
+          });
+        const dots = document.getElementById("slideDots");
+        currentPhotos.forEach((_, i) => {
+          const d = document.createElement("button");
+          d.className = "slide-dot" + (i === 0 ? " active" : "");
+          d.onclick = (e) => {
+            e.stopPropagation();
+            goSlide(i);
+          };
+          dots.appendChild(d);
+        });
+      }
+
+      /* ── Tam Ekran ── */
+      function openFullscreen(i) {
+        slideIndex = i;
+        fsPaused = false;
+        const ov = document.getElementById("fsOverlay");
+        document.getElementById("fsImg").src = currentPhotos[i].src;
+        document.getElementById("fsCaption").textContent =
+          currentPhotos[i].title;
+        document.getElementById("fsCnt").textContent =
+          `${i + 1} / ${currentPhotos.length}`;
+        ov.classList.add("open");
+
+        // Fix: only start timer if in auto mode
+        if (currentView === "auto") {
+          startFsTimer();
+        }
+
+        if (document.documentElement.requestFullscreen)
+          document.documentElement.requestFullscreen().catch(() => {});
+      }
+      function closeFullscreen() {
+        document.getElementById("fsOverlay").classList.remove("open");
+
+        // Stop auto timer on exit
+        clearFsTimer();
+
+        if (document.fullscreenElement && document.exitFullscreen)
+          document.exitFullscreen().catch(() => {});
+      }
+      function fsMove(dir) {
+        const i =
+          (slideIndex + dir + currentPhotos.length) % currentPhotos.length;
+        slideIndex = i;
+        const img = document.getElementById("fsImg");
+        img.style.opacity = 0;
+        setTimeout(() => {
+          img.src = currentPhotos[i].src;
+          img.style.opacity = 1;
+        }, 250);
+        document.getElementById("fsCaption").textContent =
+          currentPhotos[i].title;
+        document.getElementById("fsCnt").textContent =
+          `${i + 1} / ${currentPhotos.length}`;
+
+        // Fix: only reset timer if in auto mode
+        if (currentView === "auto") {
+          startFsTimer();
+        }
+      }
+
+      document.getElementById("fsClose").onclick = closeFullscreen;
+      document.getElementById("fsPrev").onclick = () => fsMove(-1);
+      document.getElementById("fsNext").onclick = () => fsMove(1);
+      document
+        .getElementById("fsOverlay")
+        .addEventListener("click", function (e) {
+          if (e.target === this) closeFullscreen();
+        });
+
+      function moveSlide(dir) {
+        goSlide(
+          (slideIndex + dir + currentPhotos.length) % currentPhotos.length,
+        );
+      }
+
+      function goSlide(i) {
+        slideIndex = i;
+        const img = document.getElementById("slideImg");
+        img.style.opacity = 0;
+        setTimeout(() => {
+          img.src = currentPhotos[i].src;
+          img.style.opacity = 1;
+        }, 250);
+        document.getElementById("slideCaption").textContent =
+          currentPhotos[i].title;
+        document.getElementById("slideCnt").textContent =
+          `${i + 1} / ${currentPhotos.length}`;
+        document
+          .querySelectorAll(".slide-dot")
+          .forEach((d, j) => d.classList.toggle("active", j === i));
+      }
+
+      function openLightbox(i) {
+        slideIndex = i;
+        const lb = document.getElementById("lightbox");
+        document.getElementById("lbImg").src = currentPhotos[i].src;
+        document.getElementById("lbInfo").textContent =
+          `${currentPhotos[i].title}  —  ${currentPhotos[i].date}`;
+        lb.classList.add("open");
+      }
+      function closeLightbox() {
+        document.getElementById("lightbox").classList.remove("open");
+      }
+
+      document
+        .getElementById("lightbox")
+        .addEventListener("click", function (e) {
+          if (e.target === this) closeLightbox();
+        });
+      document.addEventListener("keydown", (e) => {
+        const fsOpen = document
+          .getElementById("fsOverlay")
+          .classList.contains("open");
+        if (e.key === "Escape") {
+          if (fsOpen) closeFullscreen();
+          else closeLightbox();
+        }
+        if (e.key === "ArrowRight") {
+          if (fsOpen) fsMove(-1);
+          else moveSlide(-1);
+        }
+        if (e.key === "ArrowLeft") {
+          if (fsOpen) fsMove(1);
+          else moveSlide(1);
+        }
+      });
+
+      setView("small");
+      function startFsTimer() {
+        clearFsTimer();
+        if (fsPaused) return;
+
+        // Run auto move after interval time passes
+        fsTimer = setTimeout(() => {
+          fsMove(1); // Move to next image
+          startFsTimer(); // Repeat cycle
+        }, autoInterval); // Uses same autoInterval variable
+      }
+
+      function clearFsTimer() {
+        if (fsTimer) {
+          clearTimeout(fsTimer);
+          fsTimer = null;
+        }
+      }
+
+      // doSystemLogin is defined in app.js
+    </script>
+
+    <!-- ══ Toast Message ══ -->
+    <div
+      id="apToast"
+      style="
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #3a2a1a;
+        color: #fff;
+        padding: 10px 22px;
+        border-radius: 99px;
+        font-size: 0.92rem;
+        font-family: inherit;
+        z-index: 99999;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+        white-space: nowrap;
+        display: none;
+      "
+    ></div>
+    <style>
+      #apToast.show {
+        opacity: 1 !important;
+      }
+    </style>
+
+    <!-- ══ Admin Overlay ══ -->
+    <div
+      id="adminOverlay"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+      "
+      onclick="closeAdmin()"
+    ></div>
+
+    <!-- ══ Admin Butonu ══ -->
+    <button
+      class="admin-btn"
+      id="adminBtn"
+      title="Admin Paneli"
+      onclick="openAdmin()"
+      fdprocessedid="tx61pt"
+    >
+      ⚙
+    </button>
+
+    <!-- ══ Admin Paneli ══ -->
+    <div
+      class="login-card"
+      id="loginCard"
+      style="
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10000;
+      "
+    >
+      <h2>🔐 Admin Girişi</h2>
+      <p>Albümü yönetmek için giriş yapın</p>
+      <div class="login-field">
+        <label>Kullanıcı Adı</label>
+        <input
+          type="text"
+          id="adUser"
+          placeholder="a..."
+          value="admin"
+          autocomplete="none"
+        />
+      </div>
+      <div class="login-field">
+        <label>Şifre</label>
+        <input
+          type="password"
+          id="adPass"
+          placeholder="a...k..."
+          value="a...k..."
+          autocomplete="none"
+          onkeydown="if (event.key === 'Enter') doAdminLogin();"
+        />
+      </div>
+      <div class="login-err" id="adErr"></div>
+      <button class="abtn abtn-brown abtn-block" onclick="doAdminLogin()">
+        Giriş
+      </button>
+      <button
+        class="abtn abtn-sm"
+        style="
+          margin-top: 0.7rem;
+          background: transparent;
+          color: var(--text-muted);
+          width: 100%;
+          justify-content: center;
+        "
+        onclick="closeAdmin()"
+      >
+        İptal
+      </button>
+    </div>
+
+    <!-- admin panel card -->
+    <div
+      class="admin-panel"
+      id="adminPanel"
+      style="
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10000;
+        width: 90%;
+        max-width: 780px;
+        height: 88vh;
+        max-height: 88vh;
+        box-shadow: rgba(0, 0, 0, 0.3) 0px 10px 30px;
+        border-radius: 12px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        margin: 0px;
+        background: rgb(255, 255, 255);
+      "
+    >
+      <div class="ap-header" style="flex-shrink: 0">
+        <h3>Anı Yönetim Paneli</h3>
+        <button class="ap-close" onclick="closeAdmin()" fdprocessedid="q0mqyt">
+          ×
+        </button>
+      </div>
+
+      <div
+        class="admin-tabs"
+        style="
+          display: flex;
+          flex-shrink: 0;
+          background: #f5efe8;
+          border-bottom: 1px solid #e0d0be;
+          padding: 0 1rem;
+        "
+      >
+        <button
+          id="btnTabUploads"
+          class="tab-btn active"
+          onclick="switchAdminTab('uploads')"
+          style="
+            flex: 1 1 0%;
+            padding: 12px;
+            background: transparent;
+            border-top-width: medium;
+            border-right-width: medium;
+            border-left-width: medium;
+            border-top-style: none;
+            border-right-style: none;
+            border-left-style: none;
+            border-top-color: currentcolor;
+            border-right-color: currentcolor;
+            border-left-color: currentcolor;
+            border-image: initial;
+            border-bottom-width: 1px;
+            border-bottom-style: 3px;
+            border-bottom-color: var(--gold);
+            font-family: inherit;
+            font-weight: 600;
+            color: var(--brown-dark);
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.95rem;
+          "
+          fdprocessedid="b4fynb"
+        >
+          📂 Yüklemeler ve Olaylar
+        </button>
+        <button
+          id="btnTabSettings"
+          class="tab-btn"
+          onclick="switchAdminTab('settings')"
+          style="
+            flex: 1 1 0%;
+            padding: 12px;
+            background: transparent;
+            border-width: medium medium 3px;
+            border-style: none none solid;
+            border-color: currentcolor currentcolor transparent;
+            border-image: initial;
+            font-family: inherit;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.95rem;
+          "
+          fdprocessedid="xa2czg"
+        >
+          ⚙️ Ayarlar ve Güvenlik
+        </button>
+      </div>
+
+      <div
+        class="ap-body"
+        style="
+          overflow-y: auto;
+          overflow-x: hidden;
+          flex: 1 1 0%;
+          min-height: 0;
+          padding: 1.5rem;
+        "
+      >
+        <div id="tab-uploads" style="display: block">
+          <div class="panel-box">
+            <span class="box-title">Yeni Etkinlik Ekle</span>
+            <div
+              class="form-group"
+              style="flex-wrap: nowrap; gap: 8px; align-items: center"
+            >
+              <input
+                type="text"
+                id="newOccasionName"
+                class="input-field"
+                placeholder="Etkinlik adı (örn: Doğum Günü)"
+                style="flex: 1 1 0; min-width: 0"
+                onkeydown="if (event.key === 'Enter') createNewOccasion();"
+              />
+              <button
+                class="abtn abtn-gold"
+                onclick="createNewOccasion()"
+                style="white-space: nowrap; flex-shrink: 0"
+              >
+                + Ekle
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-box">
+            <span class="box-title">Etkinlik Sil</span>
+            <div
+              class="form-group"
+              style="flex-wrap: nowrap; gap: 8px; align-items: center"
+            >
+              <select
+                id="deleteOccasionSelector"
+                class="input-field"
+                style="flex: 1 1 0; min-width: 0"
+                onfocus="fillDeleteOccasionSelector()"
+              >
+                <option value="">Silinecek etkinliği seçin...</option>
+              </select>
+              <button
+                class="abtn"
+                onclick="deleteOccasion()"
+                style="
+                  white-space: nowrap;
+                  flex-shrink: 0;
+                  background: #c0392b;
+                  color: #fff;
+                  border: none;
+                "
+              >
+                🗑 Etkinliği Sil
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-box">
+            <span class="box-title">Yeni Olay Oluştur</span>
+            <div class="form-group">
+              <select
+                id="eventOccasionSelector"
+                class="input-field"
+                fdprocessedid="4wjh8"
+              >
+                <option value="">Etkinlik seçin...</option>
+              </select>
+              <input
+                type="text"
+                id="newEventName"
+                class="input-field"
+                placeholder="Yeni olay adı"
+                fdprocessedid="n3ll8j"
+              />
+              <button
+                class="abtn abtn-gold"
+                onclick="createNewEvent()"
+                fdprocessedid="zuqytq"
+              >
+                + Ekle
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-box">
+            <span class="box-title">Olay ve Fotoğraf Yönetimi</span>
+            <div class="form-group">
+              <select
+                id="manageOccasionSelector"
+                class="input-field"
+                onchange="updateEventSelector()"
+                fdprocessedid="nu7556"
+              >
+                <option value="">Etkinlik seçin...</option>
+                <!-- <option value="birthday">Doğum Günü</option>
+                <option value="eid">Bayram</option>
+                <option value="family">Aile Toplantısı</option>
+                <option value="wedding">Düğün</option>
+                <option value="khorshid">Güneş</option>
+                <option value="graduation">Mezuniyet</option>
+                <option value="friends">Arkadaşlarla</option>
+                <option value="ceremonies">Kutlamalar ve Partiler</option>
+                <option value="salgard">Evlilik Yıldönümü</option>
+                <option value="adventure">Eğlence, Seyahat, Doğa</option>
+                <option value="darham">Karışık</option> -->
+              </select>
+              <select
+                id="manageEventSelector"
+                class="input-field"
+                fdprocessedid="nna7ka"
+              >
+                <option value="">Olay seçin...</option>
+                <!-- <option value="0">Çeşitli</option>
+                <option value="1">Stüdyo Fotoğrafları</option>
+                <option value="2">İlk Okul Günü</option>
+                <option value="3">Jurassic Park</option>
+                <option value="4">Hayvanat Bahçesi</option> -->
+              </select>
+              <button
+                class="abtn abtn-brown"
+                onclick="fetchEventPhotos()"
+                fdprocessedid="47sun"
+              >
+                Çağrıldı
+              </button>
+              <button
+                class="abtn abtn-red"
+                onclick="deleteEntireEvent()"
+                fdprocessedid="b08mor"
+              >
+                Olayı Sil
+              </button>
+            </div>
+            <div
+              class="form-group upload-btn-group"
+              style="margin-top: 0.8rem; align-items: center"
+            >
+              <input
+                type="file"
+                id="fileInput"
+                multiple=""
+                accept="image/*"
+                style="display: none"
+                onchange="handleFileSelect(event)"
+              />
+              <button
+                class="abtn abtn-gold"
+                onclick="document.getElementById('fileInput').click()"
+                fdprocessedid="anfr2"
+              >
+                📸 Fotoğraf Ekle
+              </button>
+              <button
+                class="abtn abtn-green"
+                onclick="uploadToCloudinary()"
+                fdprocessedid="t3we0j"
+              >
+                ☁️ Cloudinary'e Yükle
+              </button>
+              <button
+                id="stopUploadBtn"
+                class="abtn"
+                onclick="cancelUpload()"
+                style="
+                  display: none;
+                  background: #c0392b;
+                  color: #fff;
+                  border: none;
+                "
+              >
+                ⛔ Yüklemeyi Durdur
+              </button>
+              <button
+                class="abtn abtn-sm"
+                onclick="clearPhotoQueue()"
+                style="opacity: 0.7"
+                fdprocessedid="3uxiv3"
+              >
+                🗑 Kuyruğu Temizle
+              </button>
+            </div>
+            <div
+              id="uploadProgressWrap"
+              style="display: block; margin-top: 0.7rem"
+            >
+              <div
+                style="
+                  font-size: 0.82rem;
+                  color: var(--brown-mid);
+                  margin-bottom: 4px;
+                "
+                id="uploadProgressLabel"
+              ></div>
+              <div
+                style="
+                  background: #e8ddd0;
+                  border-radius: 99px;
+                  height: 8px;
+                  overflow: hidden;
+                "
+              >
+                <div
+                  id="uploadProgressBar"
+                  style="
+                    height: 100%;
+                    width: 100%;
+                    background: rgb(200, 146, 58);
+                    border-radius: 99px;
+                    transition: width 0.3s;
+                  "
+                ></div>
+              </div>
+            </div>
+            <div
+              id="statusMessage"
+              style="
+                margin-top: 10px;
+                font-size: 0.83rem;
+                color: var(--brown-mid);
+                font-weight: 500;
+              "
+            ></div>
+            <div
+              id="adminPhotoGrid"
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(111px, 1fr));
+                gap: 10px;
+                margin-top: 1rem;
+              "
+            ></div>
+          </div>
+          <!-- end panel-box -->
+        </div>
+        <!-- end tab-uploads -->
+
+        <div id="tab-settings" style="display: none">
+          <div class="panel-box">
+            <span class="box-title">Güvenlik Ayarları</span>
+            <div class="form-group" style="gap: 10px">
+              <button
+                class="abtn abtn-brown abtn-block"
+                onclick="openPwdModal('admin')"
+              >
+                🔒 Admin Paneli Şifresini Değiştir
+              </button>
+              <button
+                class="abtn abtn-brown abtn-block"
+                onclick="openPwdModal('system')"
+              >
+                🔑 Sistem Giriş Şifresini Değiştir
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- end tab-settings -->
+      </div>
+    </div>
+
+    <!-- Şifre Değiştirme Modalı -->
+    <div id="pwdChangeOverlay" class="pwd-overlay">
+      <div class="pwd-card">
+        <h3 id="pwdModalTitle">Giriş Bilgilerini Değiştir</h3>
+        <p id="pwdModalDesc">Değiştirmek için istenen bilgileri girin</p>
+        <div class="pwd-field">
+          <label>Yeni Kullanıcı Adı</label>
+          <input type="text" id="pwdNewUser" placeholder="Yeni kullanıcı adı" />
+        </div>
+        <div class="pwd-field">
+          <label>Mevcut Şifre</label>
+          <input type="password" id="pwdCurrentPass" placeholder="Mevcut şifre" />
+        </div>
+        <div class="pwd-field">
+          <label>Yeni Şifre</label>
+          <input
+            type="password"
+            id="pwdNewPass"
+            placeholder="En az 6 karakter"
+          />
+        </div>
+        <div class="pwd-field">
+          <label>Yeni Şifreyi Tekrarla</label>
+          <input
+            type="password"
+            id="pwdConfirmPass"
+            placeholder="Yeni şifreyi tekrarla"
+          />
+        </div>
+        <div class="login-err" id="pwdErr"></div>
+        <div class="pwd-btns">
+          <button class="abtn abtn-brown" onclick="closePwdModal()">
+            İptal
+          </button>
+          <button
+            id="pwdApplyBtn"
+            class="abtn abtn-gold"
+            onclick="applyPwdChange()"
+          >
+            Değiştir
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- updateEventSelector is defined in app.js and uses window.DATA -->
+
+    <!-- Code injected by live-server -->
+    <script>
+      // <![CDATA[  <-- For SVG support
+      if ("WebSocket" in window) {
+        (function () {
+          function refreshCSS() {
+            var sheets = [].slice.call(document.getElementsByTagName("link"));
+            var head = document.getElementsByTagName("head")[0];
+            for (var i = 0; i < sheets.length; ++i) {
+              var elem = sheets[i];
+              var parent = elem.parentElement || head;
+              parent.removeChild(elem);
+              var rel = elem.rel;
+              if (
+                (elem.href && typeof rel != "string") ||
+                rel.length == 0 ||
+                rel.toLowerCase() == "stylesheet"
+              ) {
+                var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, "");
+                elem.href =
+                  url +
+                  (url.indexOf("?") >= 0 ? "&" : "?") +
+                  "_cacheOverride=" +
+                  new Date().valueOf();
+              }
+              parent.appendChild(elem);
+            }
+          }
+          var protocol =
+            window.location.protocol === "http:" ? "ws://" : "wss://";
+          var address =
+            protocol + window.location.host + window.location.pathname + "/ws";
+          var socket = new WebSocket(address);
+          socket.onmessage = function (msg) {
+            if (msg.data == "reload") window.location.reload();
+            else if (msg.data == "refreshcss") refreshCSS();
+          };
+          if (
+            sessionStorage &&
+            !sessionStorage.getItem("IsThisFirstTime_Log_From_LiveServer")
+          ) {
+            console.log("Live reload enabled.");
+            sessionStorage.setItem("IsThisFirstTime_Log_From_LiveServer", true);
+          }
+        })();
+      } else {
+        console.error(
+          "Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.",
+        );
+      }
+    </script>
+    <!-- Şifre Değiştirme Modalı -->
+
+    <span id="PING_IFRAME_FORM_DETECTION" style="display: none"></span
+    ><span id="PING_CONTENT_DLS_POPUP" style="display: none"></span>
+    <div
+      style="
+        background-color: transparent;
+        border-width: medium;
+        border-style: none;
+        border-color: currentcolor;
+        border-image: initial;
+        bottom: 15px;
+        display: block;
+        margin: 0px;
+        opacity: 1;
+        padding: 0px;
+        position: fixed;
+        right: 15px;
+        z-index: 2147483647;
+      "
+    ></div>
+    <span id="PING_IFRAME_FORM_DETECTION" style="display: none"></span
+    ><span id="PING_CONTENT_DLS_POPUP" style="display: none"></span>
+    <div
+      style="
+        background-color: transparent;
+        border-width: medium;
+        border-style: none;
+        border-color: currentcolor;
+        border-image: initial;
+        bottom: 15px;
+        display: block;
+        margin: 0px;
+        opacity: 1;
+        padding: 0px;
+        position: fixed;
+        right: 15px;
+        z-index: 2147483647;
+      "
+    ></div>
+
+    <span id="PING_IFRAME_FORM_DETECTION" style="display: none"></span
+    ><span id="PING_CONTENT_DLS_POPUP" style="display: none"></span>
+    <div
+      style="
+        background-color: transparent;
+        border-width: medium;
+        border-style: none;
+        border-color: currentcolor;
+        border-image: initial;
+        bottom: 15px;
+        display: block;
+        margin: 0px;
+        opacity: 1;
+        padding: 0px;
+        position: fixed;
+        right: 15px;
+        z-index: 2147483647;
+      "
+    ></div>
+
+    <span id="PING_IFRAME_FORM_DETECTION" style="display: none"></span
+    ><span id="PING_CONTENT_DLS_POPUP" style="display: none"></span>
+    <div
+      style="
+        background-color: transparent;
+        border-width: medium;
+        border-style: none;
+        border-color: currentcolor;
+        border-image: initial;
+        bottom: 15px;
+        display: block;
+        margin: 0px;
+        opacity: 1;
+        padding: 0px;
+        position: fixed;
+        right: 15px;
+        z-index: 2147483647;
+      "
+    ></div>
+
+    <!-- app.js must be loaded after all HTML elements -->
+    <script src="appTR.js"></script>
+  </body>
+</html>

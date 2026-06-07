@@ -1,11 +1,20 @@
 /* ════════════════════════════════════════════════════════════
-   app.js — Firebase Sürümü
-   Tüm veriler (fotoğraflar, olaylar, etkinlikler) Firebase RTDB'de
-   data.js gerekmez — her değişiklik doğrudan veritabanına kaydedilir
+   appTR.js — Firebase Sürümü (v2)
+   - System login bu dosyada YOK — index.html gateway'i üstlendi
+   - Sayfa açılışında sessionStorage kontrol edilir; giriş yoksa index.html'e yönlendirilir
+   - Admin login ve admin panel BU DOSYADA KALIR
    ════════════════════════════════════════════════════════════ */
-// Projeyi Render'a yükledikten sonra bu adresi Render site adresinizle değiştirin
 
 (function () {
+  // ══════════════════════════════════════════════════════════
+  //  🔒 Oturum Kontrolü — System login yapılmamışsa geri gönder
+  // ══════════════════════════════════════════════════════════
+  if (sessionStorage.getItem("initialLoggedIn") !== "true") {
+    window.location.href = "index.html";
+    // Sayfanın geri kalanının çalışmasını durdur
+    throw new Error("AUTH_REDIRECT");
+  }
+
   // ══════════════════════════════════════════════════════════
   //  ⚙️  Firebase ve Cloudinary Ayarları
   // ══════════════════════════════════════════════════════════
@@ -30,8 +39,6 @@
   const CONFIG = {
     cloudName: "delf4luxo",
     uploadPreset: "ml_default",
-    // apiKey: "925938693554627",
-    // apiSecret: "FEnSdhP9qa7qx9X882awdUfJbJ4",
   };
 
   // ══════════════════════════════════════════════════════════
@@ -43,30 +50,20 @@
   const rtdb = firebase.database();
 
   // ── Yerel Bellek (Önbellek) ──
-  // DATA: { [occasion]: [ { label, photos: [{src, title}] } ] }  — dizi formatı
   window.DATA = {};
   window.LABELS = {};
-
-  // const FUNCTIONS_BASE_URL =
-  //   "https://us-central1-fotoalbum-ac441.cloudfunctions.net";
 
   let _cfg = {
     cloudName: CONFIG.cloudName,
     preset: CONFIG.uploadPreset,
     apiKey: CONFIG.apiKey,
     apiSecret: CONFIG.apiSecret,
-    sysUser: "",
-    sysPass: "",
     adminUser: "",
     adminPass: "",
   };
 
-  function cfg(k) {
-    return _cfg[k] || "";
-  }
-  function setCfg(k, v) {
-    _cfg[k] = v;
-  }
+  function cfg(k) { return _cfg[k] || ""; }
+  function setCfg(k, v) { _cfg[k] = v; }
 
   let apQueue = [];
   let pwdTargetType = "";
@@ -75,7 +72,6 @@
   //  Firebase Helper Functions
   // ══════════════════════════════════════════════════════════
 
-  // Firebase yapısını (e0,e1,... anahtarlı nesne) diziye dönüştür
   function fbEventsToArray(eventsObj) {
     if (!eventsObj) return [];
     return Object.entries(eventsObj)
@@ -98,20 +94,16 @@
       }));
   }
 
-  // Firebase için benzersiz anahtar üret
   function fbKey() {
     return (
       "k" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
     );
   }
 
-  // Firebase'den tüm verileri yükle
-  // Daha yüksek güvenlik için güncellendi
   async function loadAllData() {
     const [labelsSnap, albumsSnap] = await Promise.all([
       rtdb.ref("/labels").once("value"),
       rtdb.ref("/albums").once("value"),
-      // ❌ Şifre alma satırı tamamen kaldırıldı
     ]);
 
     window.LABELS = labelsSnap.val() || {};
@@ -121,14 +113,12 @@
       window.DATA[occ] = fbEventsToArray(albumsSnap.val()[occ]);
     });
 
-    // Ayarlar: yalnızca Cloudinary adı herkese açık kalır
     _cfg.cloudName = "delf4luxo";
     _cfg.preset = "ml_default";
 
     return true;
   }
 
-  // Kimlik bilgilerini Firebase'e kaydet
   async function saveCredentialsToFirebase(updates) {
     try {
       await rtdb.ref("/").update(updates);
@@ -139,37 +129,31 @@
     }
   }
 
-  // Firebase'e bir olay kaydet (oluştur veya güncelle)
   async function saveEventToFB(occ, eventIdx) {
     const ev = window.DATA[occ][eventIdx];
     if (!ev) return;
     const key = ev._fbKey || "e" + eventIdx;
-
     const photosObj = {};
     (ev.photos || []).forEach(function (p, pIdx) {
       const pKey = p._fbKey || "p" + pIdx;
       photosObj[pKey] = { src: p.src, title: p.title || "", order: pIdx };
       p._fbKey = pKey;
     });
-
     const evObj = { label: ev.label, order: eventIdx, photos: photosObj };
     await rtdb.ref("/albums/" + occ + "/" + key).set(evObj);
     ev._fbKey = key;
   }
 
-  // Firebase'den bir olayı sil
   async function deleteEventFromFB(occ, fbKey) {
     await rtdb.ref("/albums/" + occ + "/" + fbKey).remove();
   }
 
-  // Firebase'den bir fotoğrafı sil
   async function deletePhotoFromFB(occ, eventFbKey, photoFbKey) {
     await rtdb
       .ref("/albums/" + occ + "/" + eventFbKey + "/photos/" + photoFbKey)
       .remove();
   }
 
-  // Firebase'e bir fotoğraf ekle
   async function addPhotoToFB(occ, eventIdx, photoData) {
     const ev = window.DATA[occ][eventIdx];
     if (!ev || !ev._fbKey) return;
@@ -183,7 +167,6 @@
     photoData._fbKey = pKey;
   }
 
-  // splice sonrası olay sırasını güncelle
   async function reorderEventsFB(occ) {
     const updates = {};
     (window.DATA[occ] || []).forEach(function (ev, idx) {
@@ -201,10 +184,7 @@
   let _dataCallbacks = [];
 
   function onDataReady(cb) {
-    if (_dataLoaded) {
-      cb();
-      return;
-    }
+    if (_dataLoaded) { cb(); return; }
     _dataCallbacks.push(cb);
   }
 
@@ -212,73 +192,24 @@
     .then(function () {
       _dataLoaded = true;
       window._dataLoaded = true;
-      _dataCallbacks.forEach(function (cb) {
-        cb();
-      });
+      _dataCallbacks.forEach(function (cb) { cb(); });
       _dataCallbacks = [];
-      // Yükleme sonrası giriş penceresini göster
-      const systemModal = document.getElementById("initialLoginModal");
-      if (systemModal)
-        systemModal.style.setProperty("display", "flex", "important");
+      // ✅ System login modal YOK — veri yüklenince direkt içerik hazır
     })
     .catch(function (err) {
       console.error("Firebase load error:", err);
       _dataLoaded = true;
       window._dataLoaded = true;
-      _dataCallbacks.forEach(function (cb) {
-        cb();
-      });
+      _dataCallbacks.forEach(function (cb) { cb(); });
       _dataCallbacks = [];
-      const systemModal = document.getElementById("initialLoginModal");
-      if (systemModal)
-        systemModal.style.setProperty("display", "flex", "important");
     });
 
   // ══════════════════════════════════════════════════════════
-  //  System Login
+  //  DOMContentLoaded — Başlangıç Ayarları
   // ══════════════════════════════════════════════════════════
 
-  window.doSystemLogin = async function () {
-    const u = document.getElementById("lgUser").value.trim();
-    const p = document.getElementById("lgPass").value;
-    const errEl = document.getElementById("lgErr");
-    errEl.textContent = "";
-
-    if (!u || !p) {
-      errEl.textContent = "Lütfen tüm alanları doldurun";
-      return;
-    }
-
-    errEl.textContent = "⏳ Giriş bilgileri kontrol ediliyor...";
-
-    try {
-      const response = await fetch(`${FUNCTIONS_BASE_URL}/secureLogin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: u, password: p, type: "system" }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        document.getElementById("initialLoginModal").style.display = "none";
-        sessionStorage.setItem("initialLoggedIn", "true");
-        if (typeof fillOccasionSelector === "function") {
-          fillOccasionSelector(
-            document.getElementById("selOccasion"),
-            "— Etkinlik Seçin —",
-          );
-        }
-      } else {
-        errEl.textContent = result.error || "Kullanıcı adı veya şifre hatalı";
-      }
-    } catch (err) {
-      errEl.textContent = "❌ Bulut sunucusuna bağlanılamadı";
-      console.error(err);
-    }
-  };
-
   document.addEventListener("DOMContentLoaded", function () {
+    // Admin panel ve login card başlangıçta gizli
     const adminPanelEl = document.getElementById("adminPanel");
     if (adminPanelEl) adminPanelEl.style.display = "none";
     const loginCardEl = document.getElementById("loginCard");
@@ -289,30 +220,31 @@
     const statusEl = document.getElementById("statusMessage");
     if (statusEl) statusEl.textContent = "";
 
-    // Eski oturumu temizle — yeniden giriş yapılmalı
-    sessionStorage.removeItem("initialLoggedIn");
-
     const myToast = document.getElementById("apToast");
     if (myToast) myToast.style.display = "none";
 
-    // Veriler yüklenene kadar Modal'ı gizli tut
-    // (loadAllData'dan sonra gösterilecek)
+    // ──  System login modal varsa KALICI gizle (indexTR.html'de artık olmamalı)
     const systemModal = document.getElementById("initialLoginModal");
     if (systemModal) systemModal.style.display = "none";
   });
+
+  // ══════════════════════════════════════════════════════════
+  //  Dil Değiştirme — Oturumu koru, sadece sayfayı değiştir
+  // ══════════════════════════════════════════════════════════
+
+  window.switchLang = function (lang) {
+    // Oturumu koru
+    sessionStorage.setItem("initialLoggedIn", "true");
+    sessionStorage.setItem("albumLang", lang);
+    const map = { TR: "indexTR.html", FA: "indexFA.html", EN: "indexEN.html" };
+    window.location.href = map[lang] || "indexTR.html";
+  };
 
   // ══════════════════════════════════════════════════════════
   //  Admin Panel Open/Close
   // ══════════════════════════════════════════════════════════
 
   window.openAdmin = function () {
-    if (sessionStorage.getItem("initialLoggedIn") !== "true") {
-      const systemModal = document.getElementById("initialLoginModal");
-      if (systemModal)
-        systemModal.style.setProperty("display", "flex", "important");
-      return;
-    }
-
     document.getElementById("adUser").value = "";
     document.getElementById("adPass").value = "";
     document.getElementById("adErr").textContent = "";
@@ -322,7 +254,6 @@
     const statusEl = document.getElementById("statusMessage");
     if (statusEl) statusEl.textContent = "";
 
-    // Overlay'i göster
     const overlay = document.getElementById("adminOverlay");
     if (overlay) overlay.style.display = "block";
 
@@ -343,16 +274,13 @@
     const errEl = document.getElementById("adErr");
 
     if (errEl) errEl.textContent = "";
-
     if (!u || !p) {
       if (errEl) errEl.textContent = "Lütfen tüm alanları doldurun";
       return;
     }
-
     if (errEl) errEl.textContent = "⏳ Admin giriş bilgileri kontrol ediliyor...";
 
     try {
-      // Sunucuya istek gönder (Render / localhost)
       const response = await fetch(`${FUNCTIONS_BASE_URL}/secureLogin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -362,14 +290,9 @@
       const result = await response.json();
 
       if (response.ok && result.success) {
-        // Admin girişi başarılı
         document.getElementById("loginCard").style.display = "none";
         document.getElementById("adminPanel").style.display = "flex";
-
-        // Geçici kalıcılık için oturum durumunu sessionStorage'a kaydet
         sessionStorage.setItem("adminLoggedIn", "true");
-
-        // Önceden kodda bulunan admin panel yardımcı fonksiyonlarını çalıştır
         if (typeof initAdminPanel === "function") initAdminPanel();
       } else {
         if (errEl)
@@ -434,41 +357,6 @@
   }
 
   // ══════════════════════════════════════════════════════════
-  //  Cloudinary Settings
-  // ══════════════════════════════════════════════════════════
-
-  window.saveCloudinarySettings = function () {
-    const cloudName = (
-      document.getElementById("cfgCloudName").value || ""
-    ).trim();
-    const preset = (document.getElementById("cfgPreset").value || "").trim();
-    const apiKey = (document.getElementById("cfgApiKey").value || "").trim();
-    const apiSecret = (
-      document.getElementById("cfgApiSecret").value || ""
-    ).trim();
-
-    if (!cloudName) return showCfgStatus("⚠️ Cloud Name giriniz", "red");
-    if (!preset) return showCfgStatus("⚠️ Upload Preset giriniz", "red");
-
-    setCfg("cloudName", cloudName);
-    setCfg("preset", preset);
-    if (apiKey) setCfg("apiKey", apiKey);
-    if (apiSecret) setCfg("apiSecret", apiSecret);
-
-    showCfgStatus("✅ Ayarlar kaydedildi (tarayıcı kapanana kadar)", "green");
-  };
-
-  function showCfgStatus(msg, color) {
-    const el = document.getElementById("cfgStatus");
-    if (!el) return;
-    el.textContent = msg;
-    el.style.color = color;
-    setTimeout(() => {
-      if (el.textContent === msg) el.textContent = "";
-    }, 3000);
-  }
-
-  // ══════════════════════════════════════════════════════════
   //  Password Modal
   // ══════════════════════════════════════════════════════════
 
@@ -483,9 +371,7 @@
         ? "Mevcut ve yeni bilgileri girin"
         : "Admin giriş bilgilerini girin";
     ["pwdNewUser", "pwdCurrentPass", "pwdNewPass", "pwdConfirmPass"].forEach(
-      function (id) {
-        document.getElementById(id).value = "";
-      },
+      function (id) { document.getElementById(id).value = ""; }
     );
     document.getElementById("pwdErr").textContent = "";
     document.getElementById("pwdChangeOverlay").classList.add("open");
@@ -493,21 +379,12 @@
 
   window.closePwdModal = function () {
     var errEl = document.getElementById("pwdErr");
-    if (errEl) {
-      errEl.textContent = "";
-      errEl.style.color = "";
-    }
+    if (errEl) { errEl.textContent = ""; errEl.style.color = ""; }
     ["pwdNewUser", "pwdCurrentPass", "pwdNewPass", "pwdConfirmPass"].forEach(
-      function (id) {
-        var el = document.getElementById(id);
-        if (el) el.value = "";
-      },
+      function (id) { var el = document.getElementById(id); if (el) el.value = ""; }
     );
     var applyBtn = document.getElementById("pwdApplyBtn");
-    if (applyBtn) {
-      applyBtn.disabled = false;
-      applyBtn.textContent = "Değiştir";
-    }
+    if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = "Değiştir"; }
     document.getElementById("pwdChangeOverlay").classList.remove("open");
     pwdTargetType = "";
   };
@@ -522,31 +399,14 @@
     errEl.textContent = "";
     errEl.style.color = "";
 
-    if (!newUser) {
-      errEl.textContent = "⚠️ Yeni kullanıcı adını giriniz";
-      return;
-    }
+    if (!newUser) { errEl.textContent = "⚠️ Yeni kullanıcı adını giriniz"; return; }
 
-    const uKey = pwdTargetType === "system" ? "sysUser" : "adminUser";
     const pKey = pwdTargetType === "system" ? "sysPass" : "adminPass";
+    if (currentPass !== cfg(pKey)) { errEl.textContent = "⚠️ Mevcut şifre hatalı"; return; }
+    if (newPass.length < 6) { errEl.textContent = "⚠️ Yeni şifre en az 6 karakter olmalıdır"; return; }
+    if (newPass !== confirmPass) { errEl.textContent = "⚠️ Yeni şifre ve tekrarı uyuşmuyor"; return; }
 
-    if (currentPass !== cfg(pKey)) {
-      errEl.textContent = "⚠️ Mevcut şifre hatalı";
-      return;
-    }
-    if (newPass.length < 6) {
-      errEl.textContent = "⚠️ Yeni şifre en az 6 karakter olmalıdır";
-      return;
-    }
-    if (newPass !== confirmPass) {
-      errEl.textContent = "⚠️ Yeni şifre ve tekrarı uyuşmuyor";
-      return;
-    }
-
-    if (applyBtn) {
-      applyBtn.disabled = true;
-      applyBtn.textContent = "⏳ Kaydediliyor...";
-    }
+    if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = "⏳ Kaydediliyor..."; }
 
     const fbUpdates =
       pwdTargetType === "system"
@@ -555,15 +415,13 @@
 
     const ok = await saveCredentialsToFirebase(fbUpdates);
     if (ok) {
+      const uKey = pwdTargetType === "system" ? "sysUser" : "adminUser";
       setCfg(uKey, newUser);
       setCfg(pKey, newPass);
       closePwdModal();
       apToast("✅ Giriş bilgileri başarıyla Firebase'e kaydedildi");
     } else {
-      if (applyBtn) {
-        applyBtn.disabled = false;
-        applyBtn.textContent = "Değiştir";
-      }
+      if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = "Değiştir"; }
       errEl.textContent = "❌ Kaydetme hatası — lütfen tekrar deneyin";
       errEl.style.color = "red";
     }
@@ -605,7 +463,7 @@
         const placeholder =
           id === "selOccasion" ? "— Etkinlik Seçin —" : "Etkinlik seçin...";
         fillOccasionSel(sel, placeholder);
-      },
+      }
     );
     if (typeof window.updateEventSelector === "function")
       window.updateEventSelector();
@@ -617,24 +475,17 @@
     const manageOccasionSel = document.getElementById("manageOccasionSelector");
     const manageEventSel = document.getElementById("manageEventSelector");
     if (!manageOccasionSel || !manageEventSel) return;
-
     const occ = manageOccasionSel.value;
     const currentVal = manageEventSel.value;
-
     manageEventSel.innerHTML = '<option value="">Olay seçin...</option>';
     if (!occ || !window.DATA[occ]) return;
-
     window.DATA[occ].forEach(function (group, i) {
       const o = document.createElement("option");
       o.value = i;
       o.textContent = group.label;
       manageEventSel.appendChild(o);
     });
-
-    if (
-      currentVal &&
-      manageEventSel.querySelector(`option[value="${currentVal}"]`)
-    ) {
+    if (currentVal && manageEventSel.querySelector(`option[value="${currentVal}"]`)) {
       manageEventSel.value = currentVal;
     }
   };
@@ -646,23 +497,15 @@
   window.createNewOccasion = async function () {
     const persianName = document.getElementById("newOccasionName").value.trim();
     if (!persianName) return apToast("⚠️ Etkinlik adını giriniz");
-    // Benzersiz anahtar: occ_ + kısa timestamp
     const englishKey = "occ_" + Date.now().toString(36);
-
     try {
       apToast("⏳ Firebase'e kaydediliyor...");
-      // Firebase'e kaydet
       await rtdb.ref("/labels/" + englishKey).set(persianName);
-      // albums/englishKey için placeholder oluştur — aksi takdirde anahtar olmaz
-      // (Firebase boş nesneyi kaydetmez — olay yoksa anahtar da olmaz)
-
       window.DATA[englishKey] = [];
       window.LABELS[englishKey] = persianName;
-
       refreshAllSelectors();
       document.getElementById("newOccasionName").value = "";
-      document.getElementById("newOccasionRef").value = "";
-      apToast(`✅ "${persianName}" etkinliği oluşturuldu ve Firebase'e kaydedildi`);
+      apToast(`✅ "${persianName}" etkinliği oluşturuldu`);
     } catch (err) {
       console.error(err);
       apToast("❌ Kaydetme hatası");
@@ -672,15 +515,12 @@
   window.deleteOccasion = async function () {
     const key = document.getElementById("deleteOccasionSelector").value;
     if (!key) return apToast("⚠️ Önce silinecek bir etkinlik seçin");
-
     const events = window.DATA[key] || [];
     if (events.length > 0) {
       return apToast(`⛔ "${window.LABELS[key] || key}" etkinliğinde ${events.length} olay var — önce tüm olayları silin`);
     }
-
     const label = window.LABELS[key] || key;
     if (!confirm(`"${label}" etkinliğini silmek istediğinizden emin misiniz?`)) return;
-
     try {
       apToast("⏳ Firebase'den siliniyor...");
       await rtdb.ref("/labels/" + key).remove();
@@ -688,7 +528,6 @@
       delete window.DATA[key];
       delete window.LABELS[key];
       refreshAllSelectors();
-      // reset selector
       const sel = document.getElementById("deleteOccasionSelector");
       if (sel) { sel.innerHTML = '<option value="">Silinecek etkinliği seçin...</option>'; fillDeleteOccasionSelector(); }
       apToast(`✅ "${label}" etkinliği silindi`);
@@ -705,7 +544,8 @@
     Object.keys(window.DATA || {}).forEach(key => {
       const opt = document.createElement("option");
       opt.value = key;
-      opt.textContent = (window.LABELS[key] || key) + (window.DATA[key].length > 0 ? ` (${window.DATA[key].length} olay)` : " (boş)");
+      opt.textContent = (window.LABELS[key] || key) +
+        (window.DATA[key].length > 0 ? ` (${window.DATA[key].length} olay)` : " (boş)");
       sel.appendChild(opt);
     });
   }
@@ -717,18 +557,13 @@
     if (!occ) return apToast("Etkinlik seçin");
     if (!label) return apToast("Olay adını giriniz");
     if (!window.DATA[occ]) window.DATA[occ] = [];
-
     try {
       apToast("⏳ Firebase'e kaydediliyor...");
       const key = fbKey();
       const order = window.DATA[occ].length;
-      await rtdb.ref("/albums/" + occ + "/" + key).set({
-        label: label,
-        order: order,
-        photos: {},
-      });
-      window.DATA[occ].push({ _fbKey: key, label: label, photos: [] });
-      apToast(`✅ "${label}" olayı eklendi ve Firebase'e kaydedildi`);
+      await rtdb.ref("/albums/" + occ + "/" + key).set({ label, order, photos: {} });
+      window.DATA[occ].push({ _fbKey: key, label, photos: [] });
+      apToast(`✅ "${label}" olayı eklendi`);
       document.getElementById("newEventName").value = "";
       refreshAllSelectors();
     } catch (err) {
@@ -738,7 +573,7 @@
   };
 
   // ══════════════════════════════════════════════════════════
-  //  Fetch Event Photos (Admin Paneli için)
+  //  Fetch Event Photos
   // ══════════════════════════════════════════════════════════
 
   window.fetchEventPhotos = function () {
@@ -746,61 +581,34 @@
     const eventIdx = document.getElementById("manageEventSelector").value;
     if (!occ) return apToast("⚠️ Önce etkinliği seçin");
     if (eventIdx === "") return apToast("⚠️ Önce olayı seçin");
-
     const event = window.DATA[occ][eventIdx];
     if (!event) return apToast("Olay bulunamadı");
     const photos = event.photos || [];
-
     apQueue = photos.map(function (p, idx) {
       return {
         id: "ex_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
-        src: p.src,
-        preview: p.src,
-        title: p.title || "",
-        status: "existing",
-        srcOcc: occ,
-        srcEventIdx: parseInt(eventIdx),
-        photoIdx: idx,
-        _fbPhotoKey: p._fbKey,
+        src: p.src, preview: p.src, title: p.title || "",
+        status: "existing", srcOcc: occ, srcEventIdx: parseInt(eventIdx),
+        photoIdx: idx, _fbPhotoKey: p._fbKey,
       };
     });
-
     if (apQueue.length === 0) {
       const grid = document.getElementById("adminPhotoGrid");
-      if (grid)
-        grid.innerHTML =
-          '<p style="color:#a07850;font-size:0.85rem;padding:8px">Bu olayda henüz fotoğraf yok</p>';
+      if (grid) grid.innerHTML = '<p style="color:#a07850;font-size:0.85rem;padding:8px">Bu olayda henüz fotoğraf yok</p>';
       apToast(`"${event.label}" olayı — fotoğraf yok`);
       return;
     }
-
     renderAdminPhotoGrid();
     apToast(`✅ "${event.label}" olayı — ${apQueue.length} fotoğraf`);
   };
 
-  window.updateExistingPhotoTitle = function (
-    occ,
-    eventIdx,
-    photoIdx,
-    newTitle,
-  ) {
+  window.updateExistingPhotoTitle = function (occ, eventIdx, photoIdx, newTitle) {
     if (window.DATA[occ]?.[eventIdx]?.photos?.[photoIdx] !== undefined) {
       window.DATA[occ][eventIdx].photos[photoIdx].title = newTitle;
-      // Firebase'de güncelle
       const ev = window.DATA[occ][eventIdx];
       const photo = ev.photos[photoIdx];
       if (ev._fbKey && photo._fbKey) {
-        rtdb
-          .ref(
-            "/albums/" +
-              occ +
-              "/" +
-              ev._fbKey +
-              "/photos/" +
-              photo._fbKey +
-              "/title",
-          )
-          .set(newTitle);
+        rtdb.ref("/albums/" + occ + "/" + ev._fbKey + "/photos/" + photo._fbKey + "/title").set(newTitle);
       }
     }
   };
@@ -814,32 +622,21 @@
     const apiKey = cfg("apiKey");
     const apiSecret = cfg("apiSecret");
     if (!cloudName || !apiKey || !apiSecret) return "skip";
-
     const match = srcUrl.match(/\/image\/upload\/(?:v\d+\/)?(.+)\.[a-z]+$/i);
     const publicId = match ? match[1] : null;
     if (!publicId) return "error";
-
     try {
       const timestamp = Math.floor(Date.now() / 1000);
       const strToSign = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
-      const hashBuffer = await crypto.subtle.digest(
-        "SHA-1",
-        new TextEncoder().encode(strToSign),
-      );
+      const hashBuffer = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(strToSign));
       const signature = Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-
+        .map(b => b.toString(16).padStart(2, "0")).join("");
       const fd = new FormData();
       fd.append("public_id", publicId);
       fd.append("timestamp", timestamp);
       fd.append("api_key", apiKey);
       fd.append("signature", signature);
-
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`,
-        { method: "POST", body: fd },
-      );
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, { method: "POST", body: fd });
       const result = await res.json();
       return result.result === "ok" ? "ok" : "error";
     } catch (err) {
@@ -851,44 +648,22 @@
   window.deleteExistingPhoto = async function (occ, eventIdx, photoIdx) {
     if (!confirm("Bu fotoğraf olaydan ve Cloudinary'den silinsin mi?")) return;
     if (!window.DATA[occ]?.[eventIdx]) return;
-
     const ev = window.DATA[occ][eventIdx];
     const photo = ev.photos[photoIdx];
     if (!photo) return;
-
-    // Cloudinary'den sil
     const r = await cloudinaryDelete(photo.src);
     if (r === "ok") apToast("🗑 Fotoğraf Cloudinary'den ve albümden silindi");
-    else if (r === "skip")
-      apToast("🗑 Fotoğraf albümden silindi (API Key/Secret ayarlanmamış)");
+    else if (r === "skip") apToast("🗑 Fotoğraf albümden silindi (API Key/Secret ayarlanmamış)");
     else apToast("🗑 Fotoğraf albümden silindi (Cloudinary hatası)");
-
-    // Firebase'den sil
-    if (ev._fbKey && photo._fbKey) {
-      await deletePhotoFromFB(occ, ev._fbKey, photo._fbKey);
-    }
-
-    // Yerel bellekten sil
+    if (ev._fbKey && photo._fbKey) await deletePhotoFromFB(occ, ev._fbKey, photo._fbKey);
     ev.photos.splice(photoIdx, 1);
-
-    // Kalan fotoğrafların sırasını Firebase'de güncelle
     if (ev._fbKey) {
       const updates = {};
       ev.photos.forEach(function (p, idx) {
-        if (p._fbKey)
-          updates[
-            "/albums/" +
-              occ +
-              "/" +
-              ev._fbKey +
-              "/photos/" +
-              p._fbKey +
-              "/order"
-          ] = idx;
+        if (p._fbKey) updates["/albums/" + occ + "/" + ev._fbKey + "/photos/" + p._fbKey + "/order"] = idx;
       });
       if (Object.keys(updates).length > 0) await rtdb.ref("/").update(updates);
     }
-
     window.fetchEventPhotos();
   };
 
@@ -901,47 +676,28 @@
     const eventIdx = document.getElementById("manageEventSelector").value;
     if (!occ) return apToast("Etkinlik seçin");
     if (eventIdx === "") return apToast("Olay seçin");
-
     const event = window.DATA[occ][eventIdx];
     const label = event.label;
     const photos = event.photos || [];
-
-    if (
-      !confirm(
-        `"${label}" olayı ve ${photos.length} fotoğrafın tamamı siteden ve Cloudinary'den silinsin mi?`,
-      )
-    )
-      return;
-
+    if (!confirm(`"${label}" olayı ve ${photos.length} fotoğrafın tamamı siteden ve Cloudinary'den silinsin mi?`)) return;
     if (photos.length > 0) {
       apToast(`⏳ ${photos.length} fotoğraf Cloudinary'den siliniyor...`);
-      let ok = 0,
-        skipped = 0,
-        failed = 0;
+      let ok = 0, skipped = 0, failed = 0;
       for (const photo of photos) {
         const r = await cloudinaryDelete(photo.src);
         if (r === "ok") ok++;
         else if (r === "skip") skipped++;
         else failed++;
       }
-      if (skipped === photos.length)
-        apToast(
-          `🗑 "${label}" olayı silindi (API Key/Secret ayarlanmamış — Cloudinary değişmedi)`,
-        );
-      else if (failed > 0)
-        apToast(`⚠️ ${ok} fotoğraf Cloudinary'den silindi — ${failed} hatalı`);
+      if (skipped === photos.length) apToast(`🗑 "${label}" olayı silindi (Cloudinary değişmedi)`);
+      else if (failed > 0) apToast(`⚠️ ${ok} fotoğraf Cloudinary'den silindi — ${failed} hatalı`);
       else apToast(`✅ ${ok} fotoğraf Cloudinary'den ve "${label}" olayından silindi`);
     } else {
       apToast(`🗑 "${label}" olayı silindi`);
     }
-
-    // Firebase'den sil
     if (event._fbKey) await deleteEventFromFB(occ, event._fbKey);
-
-    // Yerel bellekten sil
     window.DATA[occ].splice(parseInt(eventIdx), 1);
     await reorderEventsFB(occ);
-
     refreshAllSelectors();
   };
 
@@ -964,55 +720,36 @@
   // ══════════════════════════════════════════════════════════
 
   window.handleFileSelect = function (e) {
-    const imgs = [...e.target.files].filter((f) => f.type.startsWith("image/"));
+    const imgs = [...e.target.files].filter(f => f.type.startsWith("image/"));
     if (!imgs.length) return apToast("Bir görüntü dosyası seçin");
-
     const progressWrap = document.getElementById("uploadProgressWrap");
     const progressBar = document.getElementById("uploadProgressBar");
     const progressLabel = document.getElementById("uploadProgressLabel");
     const statusEl = document.getElementById("statusMessage");
-
     const total = imgs.length;
     let loaded = 0;
-
     progressWrap.style.display = "block";
     progressBar.style.width = "0%";
     progressBar.style.background = "#c8923a";
     if (statusEl) statusEl.textContent = "";
-    progressLabel.textContent =
-      "⏳ Okunuyor 1 / " + total + "...";
-
+    progressLabel.textContent = "⏳ Okunuyor 1 / " + total + "...";
     imgs.forEach(function (file) {
       const id = "q" + Date.now() + Math.random().toString(36).slice(2, 6);
       const reader = new FileReader();
-
       reader.onprogress = function (ev) {
         if (ev.lengthComputable) {
-          const filePartial = ev.loaded / ev.total;
-          const overallPct = Math.round(((loaded + filePartial) / total) * 100);
+          const overallPct = Math.round(((loaded + ev.loaded / ev.total) / total) * 100);
           progressBar.style.width = overallPct + "%";
         }
       };
-
       reader.onload = function (ev) {
         loaded++;
-        apQueue.push({
-          id,
-          file,
-          preview: ev.target.result,
-          title: file.name.replace(/\.[^.]+$/, ""),
-          status: "pending",
-        });
-
-        const pct = Math.round((loaded / total) * 100);
-        progressBar.style.width = pct + "%";
-
+        apQueue.push({ id, file, preview: ev.target.result, title: file.name.replace(/\.[^.]+$/, ""), status: "pending" });
+        progressBar.style.width = Math.round((loaded / total) * 100) + "%";
         if (loaded < total) {
-          progressLabel.textContent =
-            "⏳ Okunuyor " + (loaded + 1) + " / " + total + "...";
+          progressLabel.textContent = "⏳ Okunuyor " + (loaded + 1) + " / " + total + "...";
         } else {
-          progressLabel.textContent =
-            "✅ " + total + " fotoğraf Cloudinary'e yüklemeye hazır";
+          progressLabel.textContent = "✅ " + total + " fotoğraf Cloudinary'e yüklemeye hazır";
           progressBar.style.background = "#4caf50";
           setTimeout(function () {
             progressWrap.style.display = "none";
@@ -1021,57 +758,38 @@
             progressLabel.textContent = "";
           }, 1800);
         }
-
         renderAdminPhotoGrid();
       };
-
       reader.onerror = function () {
         loaded++;
-        progressLabel.textContent =
-          "⚠️ Okuma hatası: " + file.name;
-        if (loaded === total) {
-          setTimeout(function () {
-            progressWrap.style.display = "none";
-          }, 2000);
-        }
+        progressLabel.textContent = "⚠️ Okuma hatası: " + file.name;
+        if (loaded === total) setTimeout(function () { progressWrap.style.display = "none"; }, 2000);
       };
-
       reader.readAsDataURL(file);
     });
-
     e.target.value = "";
   };
 
   function renderAdminPhotoGrid() {
     const grid = document.getElementById("adminPhotoGrid");
     if (!grid) return;
-    if (!apQueue.length) {
-      grid.innerHTML = "";
-      return;
-    }
-    grid.innerHTML = apQueue
-      .map(function (p) {
-        const s =
-          p.status === "existing"
-            ? '<div class="apg-badge apg-done">✓</div>'
-            : p.status === "done"
-              ? '<div class="apg-badge apg-done">✓</div>'
-              : p.status === "uploading"
-                ? '<div class="apg-badge apg-uploading">↑</div>'
-                : p.status === "error"
-                  ? '<div class="apg-badge apg-error">✗</div>'
-                  : "";
-        return `<div class="apg-item" id="apgitem-${p.id}">${s}<img src="${p.preview}" alt=""><input class="apg-title" type="text" value="${p.title.replace(/"/g, "&quot;")}" placeholder="Fotoğraf başlığı" onchange="updatePhotoTitle('${p.id}',this.value)"><button class="apg-del" onclick="removeFromQueue('${p.id}')" title="Sil">🗑</button></div>`;
-      })
-      .join("");
+    if (!apQueue.length) { grid.innerHTML = ""; return; }
+    grid.innerHTML = apQueue.map(function (p) {
+      const s =
+        p.status === "existing" ? '<div class="apg-badge apg-done">✓</div>' :
+        p.status === "done"     ? '<div class="apg-badge apg-done">✓</div>' :
+        p.status === "uploading"? '<div class="apg-badge apg-uploading">↑</div>' :
+        p.status === "error"    ? '<div class="apg-badge apg-error">✗</div>' : "";
+      return `<div class="apg-item" id="apgitem-${p.id}">${s}<img src="${p.preview}" alt=""><input class="apg-title" type="text" value="${p.title.replace(/"/g, "&quot;")}" placeholder="Fotoğraf başlığı" onchange="updatePhotoTitle('${p.id}',this.value)"><button class="apg-del" onclick="removeFromQueue('${p.id}')" title="Sil">🗑</button></div>`;
+    }).join("");
   }
 
   window.updatePhotoTitle = (id, title) => {
-    const p = apQueue.find((x) => x.id === id);
+    const p = apQueue.find(x => x.id === id);
     if (p) p.title = title;
   };
   window.removeFromQueue = (id) => {
-    apQueue = apQueue.filter((p) => p.id !== id);
+    apQueue = apQueue.filter(p => p.id !== id);
     renderAdminPhotoGrid();
   };
   window.clearPhotoQueue = () => {
@@ -1082,10 +800,9 @@
   };
 
   // ══════════════════════════════════════════════════════════
-  //  Upload to Cloudinary — ve doğrudan Firebase'e kaydet
+  //  Upload to Cloudinary
   // ══════════════════════════════════════════════════════════
 
-  // ── Yükleme durdurma kontrol değişkeni ──
   let _uploadCancelled = false;
 
   window.cancelUpload = function () {
@@ -1097,95 +814,54 @@
 
   window.uploadToCloudinary = async function () {
     const occ = document.getElementById("manageOccasionSelector")?.value || "";
-    const eventIdx =
-      document.getElementById("manageEventSelector")?.value ?? "";
-
+    const eventIdx = document.getElementById("manageEventSelector")?.value ?? "";
     if (!occ) return apToast("⚠️ Önce etkinliği seçin");
     if (eventIdx === "") return apToast("⚠️ Önce olayı seçin");
-
-    const toProcess = apQueue.filter(
-      (p) => p.status === "pending" || p.status === "existing",
-    );
+    const toProcess = apQueue.filter(p => p.status === "pending" || p.status === "existing");
     if (!toProcess.length) return apToast("Kuyrukta hiç fotoğraf yok");
-
-    const existingPhotos = toProcess.filter((p) => p.status === "existing");
-    const pendingPhotos = toProcess.filter((p) => p.status === "pending");
-
+    const existingPhotos = toProcess.filter(p => p.status === "existing");
+    const pendingPhotos = toProcess.filter(p => p.status === "pending");
     if (existingPhotos.length > 0) {
       const srcOcc = existingPhotos[0].srcOcc;
       const srcEventIdx = existingPhotos[0].srcEventIdx;
       if (srcOcc === occ && String(srcEventIdx) === String(eventIdx)) {
-        return apToast(
-          "⚠️ Kaynak ve hedef aynı — hedef etkinliği/olayı değiştirin",
-        );
+        return apToast("⚠️ Kaynak ve hedef aynı — hedef etkinliği/olayı değiştirin");
       }
     }
-
-    // 🔒 Yeni yükleme koşulları güncellendi: client-side kontrol gerekmez, ancak Cloudinary adını tutuyoruz
     if (pendingPhotos.length > 0) {
       if (!_cfg.cloudName) return apToast("Cloud Name ayarlanmamış");
     }
-
     const progressWrap = document.getElementById("uploadProgressWrap");
     const progressBar = document.getElementById("uploadProgressBar");
     const progressLabel = document.getElementById("uploadProgressLabel");
     const statusEl = document.getElementById("statusMessage");
     const stopBtn = document.getElementById("stopUploadBtn");
-
-    // Durdur butonunu etkinleştir
     _uploadCancelled = false;
     if (stopBtn) { stopBtn.style.display = "inline-flex"; stopBtn.disabled = false; }
-
     progressWrap.style.display = "block";
     progressBar.style.width = "0%";
-    let done = 0,
-      total = toProcess.length;
-    let successCount = 0,
-      errorCount = 0;
-
+    let done = 0, total = toProcess.length, successCount = 0, errorCount = 0;
     const ev = window.DATA[occ][parseInt(eventIdx)];
     if (!ev._fbKey) {
       const key = fbKey();
-      await rtdb
-        .ref("/albums/" + occ + "/" + key)
-        .set({ label: ev.label, order: parseInt(eventIdx), photos: {} });
+      await rtdb.ref("/albums/" + occ + "/" + key).set({ label: ev.label, order: parseInt(eventIdx), photos: {} });
       ev._fbKey = key;
     }
-
-    // ── Tek fotoğraf yükleme fonksiyonu (özel imzayla) ──
     async function uploadSinglePhoto(photo, idx) {
       if (_uploadCancelled) return "cancelled";
-
       photo.status = "uploading";
       renderAdminPhotoGrid();
       progressLabel.textContent = `Yükleniyor ${idx + 1}/${total}: ${photo.title || "Başlıksız"}`;
-
       try {
-        // Her fotoğraf için ayrı imza al
-        // İmzaya dahil edilmesi için context'i sunucuya gönder
         const contextVal = photo.title ? `caption=${photo.title}` : null;
-        const sigResponse = await fetch(
-          `${FUNCTIONS_BASE_URL}/getCloudinarySignature`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              upload_preset: _cfg.preset || "ml_default",
-              ...(contextVal ? { context: contextVal } : {}),
-            }),
-          }
-        );
-
-        if (!sigResponse.ok) {
-          const errText = await sigResponse.text();
-          throw new Error(`Sunucu yanıt verdi ${sigResponse.status}: ${errText}`);
-        }
-
+        const sigResponse = await fetch(`${FUNCTIONS_BASE_URL}/getCloudinarySignature`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ upload_preset: _cfg.preset || "ml_default", ...(contextVal ? { context: contextVal } : {}) }),
+        });
+        if (!sigResponse.ok) throw new Error(`Sunucu yanıt verdi ${sigResponse.status}`);
         const sigData = await sigResponse.json();
-        if (!sigData.success) {
-          throw new Error(sigData.error || "Sunucudan imza alınamadı");
-        }
-
+        if (!sigData.success) throw new Error(sigData.error || "İmza alınamadı");
         const formData = new FormData();
         formData.append("file", photo.file);
         formData.append("api_key", sigData.api_key);
@@ -1193,14 +869,8 @@
         formData.append("signature", sigData.signature);
         formData.append("upload_preset", _cfg.preset || "ml_default");
         if (sigData.context) formData.append("context", sigData.context);
-
-        const res = await fetch(
-          `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/image/upload`,
-          { method: "POST", body: formData }
-        );
-
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloud_name}/image/upload`, { method: "POST", body: formData });
         const data = await res.json();
-
         if (data.secure_url) {
           const newPhotoData = { src: data.secure_url, title: photo.title };
           window.DATA[occ][parseInt(eventIdx)].photos.push(newPhotoData);
@@ -1208,9 +878,7 @@
           photo.status = "done";
           return "success";
         } else {
-          const cloudErr = data.error?.message || JSON.stringify(data);
-          console.error("❌ Cloudinary error:", cloudErr);
-          throw new Error(cloudErr);
+          throw new Error(data.error?.message || JSON.stringify(data));
         }
       } catch (err) {
         console.error(`❌ ${photo.title} yüklenemedi:`, err.message);
@@ -1218,39 +886,27 @@
         return "error";
       }
     }
-
-    // ── Mevcut fotoğrafları aktar (Firebase write olduğu için sıralı) ──
     for (const photo of toProcess.filter(p => p.status === "existing")) {
       if (_uploadCancelled) break;
       progressLabel.textContent = `Aktarılıyor: ${photo.title}`;
       const srcEv = window.DATA[photo.srcOcc]?.[photo.srcEventIdx];
       const srcArr = srcEv?.photos;
-      if (!window.DATA[occ][parseInt(eventIdx)].photos)
-        window.DATA[occ][parseInt(eventIdx)].photos = [];
+      if (!window.DATA[occ][parseInt(eventIdx)].photos) window.DATA[occ][parseInt(eventIdx)].photos = [];
       const newPhotoData = { src: photo.src, title: photo.title };
       window.DATA[occ][parseInt(eventIdx)].photos.push(newPhotoData);
       await addPhotoToFB(occ, parseInt(eventIdx), newPhotoData);
-      if (srcEv?._fbKey && photo._fbPhotoKey)
-        await deletePhotoFromFB(photo.srcOcc, srcEv._fbKey, photo._fbPhotoKey);
-      if (srcArr) {
-        const idx = srcArr.findIndex((x) => x.src === photo.src);
-        if (idx !== -1) srcArr.splice(idx, 1);
-      }
+      if (srcEv?._fbKey && photo._fbPhotoKey) await deletePhotoFromFB(photo.srcOcc, srcEv._fbKey, photo._fbPhotoKey);
+      if (srcArr) { const idx = srcArr.findIndex(x => x.src === photo.src); if (idx !== -1) srcArr.splice(idx, 1); }
       photo.status = "done";
       successCount++;
       done++;
       progressBar.style.width = Math.round((done / total) * 100) + "%";
       renderAdminPhotoGrid();
     }
-
-    // ── Yeni fotoğrafları paralel yükle (3 eşzamanlı) ──
     const pendingQueue = toProcess.filter(p => p.status === "pending" || p.status === "uploading");
     const CONCURRENCY = 3;
-
     async function runBatch(batch, startIdx) {
-      const results = await Promise.all(
-        batch.map((photo, i) => uploadSinglePhoto(photo, startIdx + i))
-      );
+      const results = await Promise.all(batch.map((photo, i) => uploadSinglePhoto(photo, startIdx + i)));
       results.forEach(r => {
         if (r === "success") successCount++;
         else if (r === "error") errorCount++;
@@ -1259,27 +915,18 @@
         renderAdminPhotoGrid();
       });
     }
-
     for (let i = 0; i < pendingQueue.length; i += CONCURRENCY) {
       if (_uploadCancelled) {
         apToast(`⛔ Yükleme durduruldu. Başarılı: ${successCount} | Hatalı: ${errorCount}`);
         if (stopBtn) stopBtn.style.display = "none";
         return;
       }
-      const batch = pendingQueue.slice(i, i + CONCURRENCY);
-      await runBatch(batch, i);
+      await runBatch(pendingQueue.slice(i, i + CONCURRENCY), i);
     }
-
-    // Tamamlandıktan sonra Durdur butonunu gizle
     if (stopBtn) stopBtn.style.display = "none";
     apToast(`✅ İşlem tamamlandı. Başarılı: ${successCount} | Hatalı: ${errorCount}`);
   };
 
-  // ══════════════════════════════════════════════════════════
-  //  Admin Overlay Close
-  // ══════════════════════════════════════════════════════════
-
-  // overlay click handled via onclick in HTML
 })();
 
 // ══════════════════════════════════════════════════════════
@@ -1291,7 +938,6 @@ function switchAdminTab(tabName) {
   const settingsContent = document.getElementById("tab-settings");
   const btnUploads = document.getElementById("btnTabUploads");
   const btnSettings = document.getElementById("btnTabSettings");
-
   if (tabName === "uploads") {
     uploadsContent.style.display = "block";
     settingsContent.style.display = "none";
